@@ -5,11 +5,8 @@ import AgentSidebar, { AgentMeta } from "@/components/AgentSidebar";
 import FileTree from "@/components/FileTree";
 import CodePane from "@/components/CodePane";
 import ChatPanel from "@/components/ChatPanel";
-import PromptLab from "@/components/PromptLab";
 import ServiceStatus from "@/components/ServiceStatus";
 import { PanelLeft, SplitSquareHorizontal, MessageSquare, Columns2 } from "lucide-react";
-
-type MainTab = "explorer" | "prompt-lab";
 
 const ACCENT_A = "#58a6ff";
 const ACCENT_B = "#79c0ff";
@@ -30,7 +27,6 @@ export default function Home() {
   const [chatOpen, setChatOpen] = useState(true);
   const [chatHeight, setChatHeight] = useState(300);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [mainTab, setMainTab] = useState<MainTab>("explorer");
 
   useEffect(() => {
     fetch("/api/agents").then((r) => r.json()).then(setAgents).catch(console.error);
@@ -53,7 +49,6 @@ export default function Home() {
   const selected = [paneA.agentName, paneB.agentName].filter(Boolean);
   const hasBPane = Boolean(paneB.agentName);
 
-  // Drag to resize chat panel
   const onDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     const startY = e.clientY;
@@ -72,30 +67,16 @@ export default function Home() {
 
   return (
     <div className="h-screen flex flex-col bg-[#0d1117] text-gray-300 overflow-hidden">
-      {/* Top toolbar */}
+      {/* ── Toolbar ─────────────────────────────────────────────────────────── */}
       <header className="h-10 border-b border-[#21262d] bg-[#010409] flex items-center px-3 gap-3 shrink-0 z-10">
         <div className="flex items-center gap-2 mr-2">
           <div className="w-5 h-5 bg-[#1f6feb] rounded flex items-center justify-center text-[10px] font-bold text-white">A</div>
           <span className="text-[13px] font-semibold text-gray-200">Agent Explorer</span>
         </div>
-        {/* Main tab switcher */}
-        <div className="flex items-center gap-0.5 border border-[#30363d] rounded-md p-0.5">
-          <TabBtn label="Explorer" active={mainTab === "explorer"} onClick={() => setMainTab("explorer")} />
-          <TabBtn label="⚡ Prompt Lab" active={mainTab === "prompt-lab"} onClick={() => setMainTab("prompt-lab")} color="purple" />
-        </div>
 
-        <div className="flex items-center gap-2 ml-auto">
-          {mainTab === "explorer" && <>
-            <ToolbarBtn icon={<PanelLeft size={14} />} label="Sidebar" active={sidebarOpen} onClick={() => setSidebarOpen((v) => !v)} />
-            <ToolbarBtn icon={<SplitSquareHorizontal size={14} />} label="Compare" active={hasBPane}
-              onClick={() => !hasBPane ? undefined : setPaneB(emptyPane())} />
-            <ToolbarBtn icon={<MessageSquare size={14} />} label="AI Chat" active={chatOpen} onClick={() => setChatOpen((v) => !v)} />
-          </>}
-          <div className="h-4 w-px bg-[#30363d] mx-1" />
-          <ServiceStatus />
-        </div>
+        {/* Active pane indicator */}
         {paneA.agentName && (
-          <div className="flex items-center gap-1 text-[11px] text-gray-500 ml-2">
+          <div className="flex items-center gap-1 text-[11px] text-gray-500">
             <span className="text-[#58a6ff] font-mono">{paneA.agentName}</span>
             {paneB.agentName && <>
               <span className="text-gray-600">↔</span>
@@ -104,15 +85,28 @@ export default function Home() {
             {paneA.selectedFileName && <span className="text-gray-600">· {paneA.selectedFileName}</span>}
           </div>
         )}
+
+        {/* Hint: ✏️ Edit button is inside each CodePane tab */}
+        {paneA.agentName && (
+          <span className="text-[10px] text-gray-700 hidden md:block">
+            Click ✏️ Edit in the code tab to open Prompt Lab diff editor
+          </span>
+        )}
+
+        <div className="flex items-center gap-2 ml-auto">
+          <ToolbarBtn icon={<PanelLeft size={14} />} label="Sidebar" active={sidebarOpen} onClick={() => setSidebarOpen((v) => !v)} />
+          <ToolbarBtn icon={<SplitSquareHorizontal size={14} />} label="Compare" active={hasBPane}
+            onClick={() => !hasBPane ? undefined : setPaneB(emptyPane())} />
+          <ToolbarBtn icon={<MessageSquare size={14} />} label="AI Chat" active={chatOpen} onClick={() => setChatOpen((v) => !v)} />
+          <div className="h-4 w-px bg-[#30363d] mx-1" />
+          <ServiceStatus />
+        </div>
       </header>
 
-      {/* Main content */}
+      {/* ── Main content ─────────────────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Prompt Lab tab */}
-        {mainTab === "prompt-lab" && <PromptLab agents={agents} />}
-
-        {/* Explorer tab */}
-        {mainTab !== "prompt-lab" && sidebarOpen && (
+        {/* Sidebar */}
+        {sidebarOpen && (
           <AgentSidebar
             agents={agents}
             selected={selected}
@@ -121,15 +115,14 @@ export default function Home() {
           />
         )}
 
-        {/* Explorer editor area */}
-        {mainTab !== "prompt-lab" && <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Code panes */}
+        {/* Editor area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 flex overflow-hidden">
             {!paneA.agentName ? (
               <WelcomeScreen onSelectFirst={() => setSidebarOpen(true)} />
             ) : (
               <>
-                {/* Pane A */}
+                {/* ── Pane A ──────────────────────────────────────────────── */}
                 <div className={`flex flex-col overflow-hidden ${hasBPane ? "w-1/2" : "flex-1"} border-r border-[#21262d]`}>
                   <PanelHeader label={paneA.agentName} color={ACCENT_A} icon="A" />
                   <div className="flex flex-1 overflow-hidden">
@@ -147,6 +140,8 @@ export default function Home() {
                         filePath={paneA.selectedFile}
                         fileName={paneA.selectedFileName}
                         agentName={paneA.agentName}
+                        agentDir={paneA.dir}
+                        agentRootDir={paneA.dir}
                         accentColor={ACCENT_A}
                         onClose={() => setPaneA((p) => ({ ...p, selectedFile: null, selectedFileName: null }))}
                       />
@@ -154,7 +149,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Pane B */}
+                {/* ── Pane B ──────────────────────────────────────────────── */}
                 {hasBPane && (
                   <div className="flex flex-col overflow-hidden w-1/2">
                     <PanelHeader label={paneB.agentName} color={ACCENT_B} icon="B"
@@ -174,6 +169,8 @@ export default function Home() {
                           filePath={paneB.selectedFile}
                           fileName={paneB.selectedFileName}
                           agentName={paneB.agentName}
+                          agentDir={paneB.dir}
+                          agentRootDir={paneB.dir}
                           accentColor={ACCENT_B}
                           onClose={() => setPaneB((p) => ({ ...p, selectedFile: null, selectedFileName: null }))}
                         />
@@ -182,7 +179,7 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* Hint to open B pane when only A is open */}
+                {/* Hint column (only when single pane) */}
                 {!hasBPane && (
                   <div className="w-8 shrink-0 flex flex-col items-center justify-center gap-2 border-l border-[#21262d] bg-[#010409]">
                     <button
@@ -197,10 +194,9 @@ export default function Home() {
             )}
           </div>
 
-          {/* AI Chat panel */}
+          {/* AI Chat */}
           {chatOpen && (
             <>
-              {/* Drag handle */}
               <div
                 className="h-1 bg-[#21262d] hover:bg-[#1f6feb] cursor-ns-resize transition-colors shrink-0"
                 onMouseDown={onDragStart}
@@ -210,31 +206,23 @@ export default function Home() {
               </div>
             </>
           )}
-        </div>}
+        </div>
       </div>
     </div>
   );
 }
 
-function TabBtn({ label, active, onClick, color = "blue" }: { label: string; active: boolean; onClick: () => void; color?: "blue" | "purple" }) {
-  const activeStyle = color === "purple"
-    ? "bg-[#8957e5]/20 text-[#d2a8ff] border-[#8957e5]/40"
-    : "bg-[#1f6feb22] text-[#58a6ff] border-[#1f6feb44]";
-  return (
-    <button
-      onClick={onClick}
-      className={`px-2.5 py-1 rounded text-[11px] font-medium transition-all ${active ? activeStyle + " border" : "text-gray-500 hover:text-gray-300"}`}
-    >
-      {label}
-    </button>
-  );
-}
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function ToolbarBtn({ icon, label, active, onClick }: { icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void }) {
+function ToolbarBtn({ icon, label, active, onClick }: {
+  icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void;
+}) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-1.5 px-2 py-1 rounded text-[11px] transition-all ${active ? "bg-[#1f6feb22] text-[#58a6ff] border border-[#1f6feb44]" : "text-gray-500 hover:text-gray-300 hover:bg-[#21262d]"}`}
+      className={`flex items-center gap-1.5 px-2 py-1 rounded text-[11px] transition-all ${
+        active ? "bg-[#1f6feb22] text-[#58a6ff] border border-[#1f6feb44]" : "text-gray-500 hover:text-gray-300 hover:bg-[#21262d]"
+      }`}
       title={label}
     >
       {icon}
@@ -243,7 +231,9 @@ function ToolbarBtn({ icon, label, active, onClick }: { icon: React.ReactNode; l
   );
 }
 
-function PanelHeader({ label, color, icon, onClose }: { label: string; color: string; icon: string; onClose?: () => void }) {
+function PanelHeader({ label, color, icon, onClose }: {
+  label: string; color: string; icon: string; onClose?: () => void;
+}) {
   return (
     <div className="h-8 border-b border-[#21262d] bg-[#010409] flex items-center px-3 gap-2 shrink-0">
       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: color + "33", color }}>{icon}</span>
@@ -261,8 +251,8 @@ function WelcomeScreen({ onSelectFirst }: { onSelectFirst: () => void }) {
       <div className="text-6xl mb-4">🤖</div>
       <h2 className="text-xl font-semibold text-gray-200 mb-2">Agent Source Explorer</h2>
       <p className="text-gray-500 text-sm mb-6 max-w-sm">
-        Browse and compare 12 AI agent source code repos.<br />
-        Side-by-side diff, AI analysis, full file tree.
+        Browse code, edit prompts with live diff, and compare agents.<br />
+        Click ✏️ <span className="text-[#d2a8ff]">Edit</span> in any file tab to open the Prompt Lab.
       </p>
       <div className="grid grid-cols-3 gap-2 text-[11px] text-gray-600 mb-6">
         {["opencode", "cline", "aider", "codex", "OpenHands", "Kun"].map((n) => (
