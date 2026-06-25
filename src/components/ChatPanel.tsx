@@ -236,54 +236,62 @@ export default function ChatPanel({ activeAgents, selectedSources = [], selected
                       return tp.type === "text" && tp.text ? <span key={i}>{String(tp.text)}</span> : null;
                     })}
                   </div>
-                  {/* User avatar */}
-                  <div className="w-7 h-7 rounded-full bg-[#e4e4e7] flex items-center justify-center shrink-0 text-[11px] font-semibold text-[#52525b]">
-                    U
-                  </div>
+                  <div className="w-7 h-7 rounded-full bg-[#e4e4e7] flex items-center justify-center shrink-0 text-[11px] font-semibold text-[#52525b]">U</div>
                 </div>
               )}
 
               {/* AI message */}
               {msg.role === "assistant" && (
                 <div className="flex items-start gap-2.5">
-                  {/* AI avatar — OpenAI logo */}
                   <div className="w-7 h-7 rounded-full bg-[#0d0d0d] flex items-center justify-center shrink-0 mt-0.5">
                     <OpenAILogo size={15} className="text-white" />
                   </div>
                   <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                  {msg.parts?.map((p, i) => {
-                    const tp = p as Record<string, unknown>;
+                    {msg.parts?.map((p, i) => {
+                      const tp = p as Record<string, unknown>;
+                      const partType = String(tp.type ?? "");
 
-                    // ── Tool bubble ─────────────────────────────────────
-                    if (tp.type && (String(tp.type).startsWith("tool-") || tp.type === "dynamic-tool")) {
-                      if (!tp.toolName) return null;
-                      const hasResult = tp.output != null;
-                      return (
-                        <ToolBubble
-                          key={i}
-                          toolName={String(tp.toolName)}
-                          args={tp.input ?? {}}
-                          result={hasResult ? String(tp.output) : undefined}
-                          state={hasResult ? "done" : "running"}
-                        />
-                      );
-                    }
+                      // skip step-start markers
+                      if (partType === "step-start") return null;
 
-                    // ── Text (markstream-react) ──────────────────────────
-                    if (tp.type === "text" && tp.text) {
-                      const text = String(tp.text);
-                      const isFinal = status !== "streaming";
-                      return (
-                        <div key={i} className="markstream-chat-content">
-                          <MarkdownRender
-                            content={text}
-                            final={isFinal}
+                      // ── Tool bubble ──────────────────────────────────────
+                      // ai-sdk v6: type = "tool-{toolName}" for static tools
+                      //            or "dynamic-tool" for dynamic tools
+                      if (partType === "dynamic-tool" || partType.startsWith("tool-")) {
+                        // Extract toolName: from field (dynamic-tool) or from type suffix (static)
+                        const toolName = String(
+                          tp.toolName ?? partType.replace(/^tool-/, "") ?? ""
+                        );
+                        if (!toolName || toolName === partType) return null; // bare "tool-" with no name
+
+                        const tpState = String(tp.state ?? "");
+                        const isDone = tpState === "output" || tpState === "error" || tp.output != null;
+                        const result = tp.output != null
+                          ? String(tp.output)
+                          : (tp.errorText ? `⚠ ${tp.errorText}` : undefined);
+
+                        return (
+                          <ToolBubble
+                            key={i}
+                            toolName={toolName}
+                            args={tp.input ?? tp.args ?? tp.parameters ?? {}}
+                            result={result}
+                            state={isDone ? "done" : "running"}
                           />
-                        </div>
-                      );
-                    }
-                    return null;
-                  })}
+                        );
+                      }
+
+                      // ── Text — rendered by markstream-react ──────────────
+                      if (partType === "text" && tp.text) {
+                        return (
+                          <div key={i} className="markstream-chat-content">
+                            <MarkdownRender content={String(tp.text)} final={status !== "streaming"} />
+                          </div>
+                        );
+                      }
+
+                      return null;
+                    })}
                   </div>
                 </div>
               )}
