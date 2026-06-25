@@ -3,23 +3,30 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import {
-  Send, Loader2, Bot, User,
-  ChevronDown, ChevronRight, Terminal, Copy, Check,
+  ArrowUp, Loader2,
+  ChevronDown, ChevronRight,
+  Copy, Check,
 } from "lucide-react";
 import { useRef, useEffect, useState, lazy, Suspense } from "react";
 import type { UIMessage } from "ai";
 import ShikiCode from "./ShikiCode";
 
-// Lazy-load Mermaid to keep initial bundle small
 const MermaidBlock = lazy(() => import("./MermaidBlock"));
 
 interface Props {
   activeAgents: string[];
 }
 
-// ── Tool call collapsible ─────────────────────────────────────────────────────
+// ── Tool pill (ChatGPT-style inline tool indicator) ───────────────────────────
 
-function ToolCallBlock({
+const TOOL_LABELS: Record<string, string> = {
+  ls_directory: "Listed directory",
+  read_file: "Read file",
+  grep_files: "Searched code",
+  get_wiki: "Read wiki",
+};
+
+function ToolPill({
   toolName, args, result,
 }: {
   toolName: string;
@@ -28,39 +35,46 @@ function ToolCallBlock({
 }) {
   const [open, setOpen] = useState(false);
   const safeArgs = (args && typeof args === "object") ? args as Record<string, unknown> : {};
-  const shortArg = Object.entries(safeArgs)
-    .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
-    .join(", ");
+
+  // Extract the most relevant arg for the label
+  const label = TOOL_LABELS[toolName] ?? toolName;
+  const detail = safeArgs.path
+    ? String(safeArgs.path).split("/").slice(-2).join("/")
+    : safeArgs.agent_name
+    ? String(safeArgs.agent_name)
+    : safeArgs.dir
+    ? String(safeArgs.dir).split("/").slice(-2).join("/")
+    : "";
 
   return (
-    <div className="my-2 rounded-md border border-[#30363d] bg-[#161b22] text-[11px] font-mono overflow-hidden">
+    <div className="my-1.5">
       <button
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-[#21262d] transition-colors"
         onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 text-[12px] text-[#8e8ea0] hover:text-[#acacbc] transition-colors group"
       >
-        <Terminal size={11} className="text-[#7ee787] shrink-0" />
-        <span className="text-[#7ee787] font-semibold">{toolName}</span>
-        <span className="text-gray-500 truncate flex-1">
-          ({shortArg.slice(0, 70)}{shortArg.length > 70 ? "…" : ""})
+        {/* Small rotating chevron */}
+        <span className={`inline-block transition-transform duration-150 ${open ? "rotate-90" : ""}`}>
+          <ChevronRight size={12} />
         </span>
-        {open
-          ? <ChevronDown size={11} className="text-gray-500 shrink-0" />
-          : <ChevronRight size={11} className="text-gray-500 shrink-0" />}
+        <span className="font-medium">{label}</span>
+        {detail && <span className="text-[11px] opacity-60 font-mono">{detail}</span>}
       </button>
 
       {open && (
-        <div className="border-t border-[#30363d]">
-          <div className="px-3 py-2 bg-[#0d1117]">
-            <div className="text-[10px] text-gray-600 mb-1">ARGS</div>
-            <pre className="whitespace-pre-wrap text-[11px] text-gray-300 overflow-auto">
+        <div className="mt-1.5 ml-4 rounded-xl bg-[#1c1c1e] border border-[#2c2c2e] overflow-hidden text-[11px] font-mono">
+          {/* Args */}
+          <div className="px-3 py-2 border-b border-[#2c2c2e]">
+            <span className="text-[#636366] uppercase tracking-wider text-[9px] font-semibold block mb-1">Input</span>
+            <pre className="text-[#ebebf599] whitespace-pre-wrap overflow-auto max-h-24">
               {JSON.stringify(safeArgs, null, 2)}
             </pre>
           </div>
+          {/* Result */}
           {result && (
-            <div className="px-3 py-2 bg-[#0d1117] border-t border-[#30363d]">
-              <div className="text-[10px] text-gray-600 mb-1">RESULT</div>
-              <pre className="whitespace-pre-wrap text-[11px] text-gray-400 max-h-56 overflow-auto">
-                {result.length > 3000 ? result.slice(0, 3000) + "\n…(truncated)" : result}
+            <div className="px-3 py-2">
+              <span className="text-[#636366] uppercase tracking-wider text-[9px] font-semibold block mb-1">Output</span>
+              <pre className="text-[#ebebf580] whitespace-pre-wrap overflow-auto max-h-36">
+                {result.length > 2000 ? result.slice(0, 2000) + "\n…" : result}
               </pre>
             </div>
           )}
@@ -70,9 +84,17 @@ function ToolCallBlock({
   );
 }
 
-// ── Code block with copy + shiki ──────────────────────────────────────────────
+// ── Code block ────────────────────────────────────────────────────────────────
 
-function ChatCodeBlock({ lang, code }: { lang: string; code: string }) {
+function InlineCode({ children }: { children: string }) {
+  return (
+    <code className="bg-[#2c2c2e] text-[#ebebf5] rounded px-1 py-0.5 text-[12px] font-mono">
+      {children}
+    </code>
+  );
+}
+
+function CodeBlock({ lang, code }: { lang: string; code: string }) {
   const [copied, setCopied] = useState(false);
   const isMermaid = lang === "mermaid";
 
@@ -85,7 +107,7 @@ function ChatCodeBlock({ lang, code }: { lang: string; code: string }) {
   if (isMermaid) {
     return (
       <Suspense fallback={
-        <div className="my-2 rounded-md border border-[#30363d] bg-[#161b22] p-4 text-gray-500 text-xs">
+        <div className="my-3 rounded-2xl bg-[#1c1c1e] p-4 text-[#636366] text-[12px]">
           Loading diagram…
         </div>
       }>
@@ -95,39 +117,39 @@ function ChatCodeBlock({ lang, code }: { lang: string; code: string }) {
   }
 
   return (
-    <div className="my-2 rounded-md border border-[#30363d] bg-[#0d1117] overflow-hidden">
-      {/* header */}
-      <div className="flex items-center justify-between px-3 py-1 bg-[#21262d]">
-        <span className="text-[10px] text-gray-500 font-mono">{lang || "code"}</span>
+    <div className="my-3 rounded-2xl overflow-hidden bg-[#1c1c1e] border border-[#2c2c2e]">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-[#2c2c2e]">
+        <span className="text-[11px] text-[#636366] font-mono">{lang || "code"}</span>
         <button
           onClick={copy}
-          className="text-gray-500 hover:text-gray-300 transition-colors"
-          title="Copy code"
+          className="text-[#636366] hover:text-[#ebebf5] transition-colors"
+          title="Copy"
         >
-          {copied ? <Check size={11} className="text-green-400" /> : <Copy size={11} />}
+          {copied
+            ? <Check size={13} className="text-green-400" />
+            : <Copy size={13} />}
         </button>
       </div>
-      {/* shiki highlighted code */}
-      <div className="overflow-auto max-h-[400px]">
-        <ShikiCode code={code} lang={lang || "text"} className="text-[12px] [&_pre]:p-4 [&_pre]:!bg-[#0d1117]" />
-      </div>
+      <ShikiCode
+        code={code}
+        lang={lang || "text"}
+        className="text-[12px] [&_pre]:p-4 [&_pre]:!bg-transparent [&_pre]:overflow-auto [&_pre]:max-h-[400px]"
+      />
     </div>
   );
 }
 
-// ── Markdown → React (no extra deps) ─────────────────────────────────────────
+// ── Markdown renderer ─────────────────────────────────────────────────────────
 
-type ContentSegment =
+type ContentSeg =
   | { kind: "text"; raw: string }
   | { kind: "code"; lang: string; code: string };
 
-function parseContent(raw: string): ContentSegment[] {
-  const segs: ContentSegment[] = [];
-  const codeRe = /```(\w*)\n?([\s\S]*?)```/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-
-  while ((m = codeRe.exec(raw)) !== null) {
+function parseContent(raw: string): ContentSeg[] {
+  const segs: ContentSeg[] = [];
+  const re = /```(\w*)\n?([\s\S]*?)```/g;
+  let last = 0, m: RegExpExecArray | null;
+  while ((m = re.exec(raw)) !== null) {
     if (m.index > last) segs.push({ kind: "text", raw: raw.slice(last, m.index) });
     segs.push({ kind: "code", lang: m[1] || "text", code: m[2] });
     last = m.index + m[0].length;
@@ -136,28 +158,41 @@ function parseContent(raw: string): ContentSegment[] {
   return segs;
 }
 
-// Inline markdown: **bold**, `code`, headers, bullets
 function renderInline(text: string): string {
   return text
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*\*(.*?)\*\*/g, "<strong class='font-semibold text-[#ebebf5]'>$1</strong>")
     .replace(/\*(.*?)\*/g, "<em>$1</em>")
-    .replace(/`([^`]+)`/g,
-      '<code class="bg-[#161b22] border border-[#30363d] px-1 py-0.5 rounded text-[11px] font-mono text-[#e6edf3]">$1</code>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g,
-      '<a href="$2" target="_blank" rel="noreferrer" class="text-[#58a6ff] hover:underline">$1</a>');
+    .replace(/`([^`]+)`/g, "<code class='bg-[#2c2c2e] text-[#ebebf5] rounded px-1 py-0.5 text-[12px] font-mono'>$1</code>")
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<a href='$2' target='_blank' rel='noreferrer' class='text-[#0a84ff] hover:underline'>$1</a>");
 }
 
-function renderTextSegment(raw: string): React.ReactNode {
+function MarkdownContent({ content }: { content: string }) {
+  const segments = parseContent(content);
+
+  return (
+    <div className="space-y-1.5">
+      {segments.map((seg, i) =>
+        seg.kind === "code" ? (
+          <CodeBlock key={i} lang={seg.lang} code={seg.code} />
+        ) : (
+          <TextSegment key={i} raw={seg.raw} />
+        )
+      )}
+    </div>
+  );
+}
+
+function TextSegment({ raw }: { raw: string }) {
   const lines = raw.split("\n");
   const nodes: React.ReactNode[] = [];
   let listItems: string[] = [];
 
-  const flushList = () => {
+  const flush = (i: number) => {
     if (!listItems.length) return;
     nodes.push(
-      <ul key={`ul-${nodes.length}`} className="my-1 ml-4 space-y-0.5 list-disc">
-        {listItems.map((item, i) => (
-          <li key={i} className="text-gray-300 text-[13px]"
+      <ul key={`ul-${i}`} className="my-2 ml-4 space-y-1 list-disc">
+        {listItems.map((item, j) => (
+          <li key={j} className="text-[14px] leading-relaxed text-[#ebebf5cc]"
             dangerouslySetInnerHTML={{ __html: renderInline(item) }} />
         ))}
       </ul>
@@ -166,77 +201,46 @@ function renderTextSegment(raw: string): React.ReactNode {
   };
 
   lines.forEach((line, i) => {
-    // Heading
     const h = line.match(/^(#{1,3})\s+(.+)$/);
     if (h) {
-      flushList();
+      flush(i);
       const level = h[1].length;
-      const cls = level === 1
-        ? "text-[15px] font-bold text-gray-100 mt-3 mb-1"
-        : level === 2
-          ? "text-[14px] font-semibold text-gray-200 mt-2 mb-0.5"
-          : "text-[13px] font-semibold text-gray-300 mt-1";
-      nodes.push(
-        <p key={i} className={cls}
-          dangerouslySetInnerHTML={{ __html: renderInline(h[2]) }} />
-      );
+      const sz = level === 1 ? "text-[16px] font-semibold mt-4 mb-1 text-[#ebebf5]"
+        : level === 2 ? "text-[14px] font-semibold mt-3 mb-0.5 text-[#ebebf5]"
+        : "text-[13px] font-medium mt-2 text-[#ebebf5]";
+      nodes.push(<p key={i} className={sz} dangerouslySetInnerHTML={{ __html: renderInline(h[2]) }} />);
       return;
     }
-
-    // Bullet list
     const bullet = line.match(/^[-*+]\s+(.+)$/);
+    const numbered = line.match(/^\d+\.\s+(.+)$/);
     if (bullet) { listItems.push(bullet[1]); return; }
-
-    // Numbered list
-    const num = line.match(/^\d+\.\s+(.+)$/);
-    if (num) { listItems.push(num[1]); return; }
-
-    // Horizontal rule
-    if (/^---+$/.test(line.trim())) {
-      flushList();
-      nodes.push(<hr key={i} className="my-2 border-[#30363d]" />);
+    if (numbered) { listItems.push(numbered[1]); return; }
+    if (/^-{3,}$/.test(line.trim())) {
+      flush(i);
+      nodes.push(<hr key={i} className="my-3 border-[#2c2c2e]" />);
       return;
     }
-
-    // Empty line = paragraph break
-    if (!line.trim()) {
-      flushList();
-      if (i > 0) nodes.push(<div key={i} className="my-1" />);
-      return;
-    }
-
-    // Regular text
-    flushList();
+    flush(i);
+    if (!line.trim()) { if (i > 0) nodes.push(<div key={i} className="h-1.5" />); return; }
     nodes.push(
-      <p key={i} className="text-gray-300 text-[13px] leading-relaxed"
+      <p key={i} className="text-[14px] leading-[1.7] text-[#ebebf5cc]"
         dangerouslySetInnerHTML={{ __html: renderInline(line) }} />
     );
   });
-  flushList();
+  flush(lines.length);
   return <>{nodes}</>;
 }
 
-function MessageContent({ content }: { content: string }) {
-  const segments = parseContent(content);
-  return (
-    <div className="space-y-1">
-      {segments.map((seg, i) =>
-        seg.kind === "code"
-          ? <ChatCodeBlock key={i} lang={seg.lang} code={seg.code} />
-          : <div key={i}>{renderTextSegment(seg.raw)}</div>
-      )}
-    </div>
-  );
-}
-
-// ── Main ChatPanel ─────────────────────────────────────────────────────────────
+// ── Suggestion chips ──────────────────────────────────────────────────────────
 
 const SUGGESTIONS = [
-  "对比 opencode 和 cline 的架构设计差异",
-  "opencode 的 agent loop 是如何实现的？",
-  "Kun 多智能体协调的核心机制",
-  "aider 和 openinterpreter 的工具调用方式对比",
+  "对比 opencode 和 cline 的架构",
+  "aider 的 agent loop 实现",
+  "Kun 多智能体协调机制",
+  "哪个 agent 的 prompt 最值得参考？",
 ];
+
+// ── Main ChatPanel ─────────────────────────────────────────────────────────────
 
 export default function ChatPanel({ activeAgents }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -250,7 +254,9 @@ export default function ChatPanel({ activeAgents }: Props) {
   const isLoading = status === "streaming" || status === "submitted";
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
   const submit = () => {
@@ -270,41 +276,47 @@ export default function ChatPanel({ activeAgents }: Props) {
     }
   };
 
+  // Auto-resize textarea
+  const onInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputValue(e.target.value);
+    const el = e.target;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  };
+
   return (
-    <div className="h-full flex flex-col bg-[#0d1117] border-t border-[#21262d]">
-      {/* Header */}
-      <div className="px-4 py-2 border-b border-[#21262d] flex items-center gap-2 shrink-0 bg-[#010409]">
-        <Bot size={14} className="text-[#58a6ff]" />
-        <span className="text-[12px] font-semibold text-gray-300">AI Analysis</span>
-        <span className="text-[10px] text-gray-600 ml-1">
-          DeepSeek V4 Flash · tools: ls / read / grep / wiki
-        </span>
-        {activeAgents.length > 0 && (
-          <div className="ml-auto flex gap-1">
-            {activeAgents.map((a) => (
-              <span
-                key={a}
-                className="text-[10px] bg-[#1f6feb22] text-[#58a6ff] border border-[#1f6feb44] px-1.5 py-0.5 rounded font-mono"
-              >
-                {a}
-              </span>
-            ))}
-          </div>
-        )}
+    <div className="h-full flex flex-col bg-[#111111] overflow-hidden" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif' }}>
+      {/* ── Slim header ────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-5 py-2.5 border-b border-[#1c1c1e] shrink-0">
+        <span className="text-[13px] font-medium text-[#ebebf5]">AI Analysis</span>
+        <div className="flex items-center gap-1.5">
+          {activeAgents.map((a) => (
+            <span key={a} className="text-[11px] bg-[#1c1c1e] text-[#636366] px-2 py-0.5 rounded-full font-mono">
+              {a}
+            </span>
+          ))}
+          {!activeAgents.length && (
+            <span className="text-[11px] text-[#3a3a3c]">DeepSeek V4 Flash</span>
+          )}
+        </div>
       </div>
 
-      {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      {/* ── Messages ───────────────────────────────────────────────────────── */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+
+        {/* Empty state */}
         {messages.length === 0 && (
-          <div className="text-center py-6">
-            <Bot size={32} className="mx-auto text-gray-700 mb-3" />
-            <p className="text-gray-500 text-sm mb-4">Ask anything about the agent repos</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-lg mx-auto">
+          <div className="flex flex-col items-center justify-center h-full min-h-[160px] text-center">
+            <div className="w-10 h-10 rounded-full bg-[#1c1c1e] flex items-center justify-center mb-4">
+              <span className="text-lg">⚡</span>
+            </div>
+            <p className="text-[14px] text-[#636366] mb-5">Ask anything about the agent repos</p>
+            <div className="flex flex-wrap justify-center gap-2">
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s}
                   onClick={() => { setInputValue(s); inputRef.current?.focus(); }}
-                  className="text-left px-3 py-2 rounded-md border border-[#21262d] text-[12px] text-gray-400 hover:border-[#30363d] hover:text-gray-300 hover:bg-[#161b22] transition-all"
+                  className="text-[12px] text-[#8e8ea0] border border-[#2c2c2e] rounded-xl px-3.5 py-1.5 hover:bg-[#1c1c1e] hover:text-[#ebebf5] hover:border-[#3a3a3c] transition-all duration-150"
                 >
                   {s}
                 </button>
@@ -313,90 +325,110 @@ export default function ChatPanel({ activeAgents }: Props) {
           </div>
         )}
 
+        {/* Message list */}
         {(messages as UIMessage[]).map((msg) => (
-          <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-              msg.role === "user" ? "bg-[#1f6feb]" : "bg-[#21262d]"
-            }`}>
-              {msg.role === "user"
-                ? <User size={11} className="text-white" />
-                : <Bot size={11} className="text-[#58a6ff]" />}
-            </div>
+          <div key={msg.id} className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
 
-            <div className={`flex-1 min-w-0 ${msg.role === "user" ? "flex flex-col items-end" : ""}`}>
-              {msg.parts?.map((part, i) => {
-                const tp = part as Record<string, unknown>;
+            {/* Tool calls (AI only, above text) */}
+            {msg.role === "assistant" && msg.parts?.map((part, i) => {
+              const tp = part as Record<string, unknown>;
+              if (tp.type && (String(tp.type).startsWith("tool-") || tp.type === "dynamic-tool")) {
+                if (!tp.toolName) return null;
+                return (
+                  <ToolPill
+                    key={i}
+                    toolName={String(tp.toolName)}
+                    args={tp.input ?? {}}
+                    result={tp.output != null ? String(tp.output) : undefined}
+                  />
+                );
+              }
+              return null;
+            })}
 
-                if (tp.type && (String(tp.type).startsWith("tool-") || tp.type === "dynamic-tool")) {
-                  if (!tp.toolName) return null;
-                  return (
-                    <ToolCallBlock
-                      key={i}
-                      toolName={String(tp.toolName)}
-                      args={tp.input ?? {}}
-                      result={tp.output != null ? String(tp.output) : undefined}
-                    />
-                  );
-                }
+            {/* Message bubble / text */}
+            {msg.parts?.map((part, i) => {
+              const tp = part as Record<string, unknown>;
+              if (tp.type !== "text" || !tp.text) return null;
+              const text = String(tp.text);
 
-                if (tp.type === "text" && tp.text) {
-                  const text = String(tp.text);
-                  return (
-                    <div
-                      key={i}
-                      className={`rounded-lg px-3 py-2 max-w-[92%] ${
-                        msg.role === "user"
-                          ? "bg-[#1f6feb] text-white"
-                          : "bg-[#161b22] text-gray-200 border border-[#21262d]"
-                      }`}
-                    >
-                      {msg.role === "user"
-                        ? <span className="text-[13px] whitespace-pre-wrap">{text}</span>
-                        : <MessageContent content={text} />}
-                    </div>
-                  );
-                }
-                return null;
-              })}
-            </div>
+              if (msg.role === "user") {
+                return (
+                  <div
+                    key={i}
+                    className="max-w-[80%] bg-[#0a84ff] text-white rounded-[20px] rounded-br-[4px] px-4 py-2.5 text-[14px] leading-[1.5] whitespace-pre-wrap"
+                    style={{ wordBreak: "break-word" }}
+                  >
+                    {text}
+                  </div>
+                );
+              }
+
+              return (
+                <div key={i} className="max-w-full">
+                  <MarkdownContent content={text} />
+                </div>
+              );
+            })}
           </div>
         ))}
 
+        {/* Loading indicator */}
         {isLoading && (
-          <div className="flex items-center gap-2 text-gray-500">
-            <Loader2 size={14} className="animate-spin text-[#58a6ff]" />
-            <span className="text-[12px]">Analyzing…</span>
+          <div className="flex items-center gap-2">
+            {/* Pulsing dots (Apple style) */}
+            <div className="flex gap-1 items-center h-5">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="w-1.5 h-1.5 bg-[#636366] rounded-full animate-bounce"
+                  style={{ animationDelay: `${i * 0.15}s`, animationDuration: "0.8s" }}
+                />
+              ))}
+            </div>
           </div>
         )}
+
+        {/* Error */}
         {error && (
-          <div className="text-red-400 text-xs bg-red-950/30 border border-red-900/50 rounded px-3 py-2">
+          <div className="text-[12px] text-[#ff453a] bg-[#2c1215] border border-[#3d1219] rounded-xl px-4 py-3">
             {String(error)}
           </div>
         )}
       </div>
 
-      {/* Input */}
-      <div className="px-4 py-3 border-t border-[#21262d] shrink-0">
-        <div className="flex gap-2 items-end">
+      {/* ── Input area ─────────────────────────────────────────────────────── */}
+      <div className="px-4 py-3 shrink-0">
+        <div className={`flex items-end gap-2 bg-[#1c1c1e] rounded-[22px] px-4 py-2.5 transition-all duration-200 border ${
+          inputValue ? "border-[#3a3a3c]" : "border-transparent"
+        } focus-within:border-[#3a3a3c]`}>
           <textarea
             ref={inputRef}
-            className="flex-1 bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-2 text-[13px] text-gray-200 placeholder-gray-600 resize-none focus:outline-none focus:border-[#1f6feb] transition-colors min-h-[38px] max-h-32"
-            placeholder="Ask about agent architecture, compare implementations… (Enter to send, Shift+Enter for newline)"
+            className="flex-1 bg-transparent text-[#ebebf5] placeholder-[#48484a] text-[14px] leading-[1.5] resize-none focus:outline-none min-h-[22px] max-h-[120px] py-0.5"
+            placeholder="Message…"
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            onChange={onInput}
             onKeyDown={onKeyDown}
             rows={1}
           />
           <button
             onClick={submit}
             disabled={isLoading || !inputValue.trim()}
-            className="bg-[#238636] hover:bg-[#2ea043] disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg px-3 py-2 transition-colors shrink-0"
+            className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-150 ${
+              inputValue.trim() && !isLoading
+                ? "bg-[#ebebf5] hover:bg-white"
+                : "bg-[#2c2c2e] cursor-not-allowed"
+            }`}
+            title="Send (Enter)"
           >
             {isLoading
-              ? <Loader2 size={16} className="animate-spin" />
-              : <Send size={16} />}
+              ? <Loader2 size={13} className="animate-spin text-[#636366]" />
+              : <ArrowUp size={13} className={inputValue.trim() ? "text-[#111111]" : "text-[#48484a]"} />}
           </button>
         </div>
+        <p className="text-center text-[10px] text-[#3a3a3c] mt-1.5">
+          Enter to send · Shift+Enter for newline
+        </p>
       </div>
     </div>
   );
