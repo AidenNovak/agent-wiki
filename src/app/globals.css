@@ -45,14 +45,17 @@ html, body { height: 100%; overflow: hidden; }
 .markstream-chat-content h1 { font-size: 18px; }
 .markstream-chat-content h2 { font-size: 16px; }
 .markstream-chat-content h3 { font-size: 14px; }
-.markstream-chat-content code {
-  background: #f4f4f5;
-  border: 1px solid #e4e4e7;
-  border-radius: 4px;
-  padding: 1px 5px;
-  font-size: 12.5px;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  color: #18181b;
+/* Override markstream-react inline code (it uses very dark defaults) */
+.markstream-chat-content code,
+.markstream-chat-content :not(pre) > code,
+.markstream-react code:not(pre code) {
+  background: #f4f4f5 !important;
+  border: 1px solid #e4e4e7 !important;
+  border-radius: 4px !important;
+  padding: 1px 6px !important;
+  font-size: 12.5px !important;
+  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  color: #18181b !important;
 }
 .markstream-chat-content pre {
   background: #18181b;

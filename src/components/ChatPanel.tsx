@@ -228,19 +228,28 @@ export default function ChatPanel({ activeAgents, selectedSources = [], selected
             <div key={msg.id}>
               {/* User message */}
               {msg.role === "user" && (
-                <div className="flex justify-end">
-                  <div className="max-w-[85%] bg-[#f4f4f5] text-[#0d0d0d] rounded-3xl rounded-br-lg px-5 py-3 text-[15px] leading-7 whitespace-pre-wrap" style={{ wordBreak: "break-word" }}>
+                <div className="flex items-end justify-end gap-2.5">
+                  <div className="max-w-[78%] bg-[#f4f4f5] text-[#0d0d0d] rounded-3xl rounded-br-lg px-5 py-3 text-[15px] leading-7 whitespace-pre-wrap" style={{ wordBreak: "break-word" }}>
                     {msg.parts?.map((p, i) => {
                       const tp = p as Record<string, unknown>;
                       return tp.type === "text" && tp.text ? <span key={i}>{String(tp.text)}</span> : null;
                     })}
+                  </div>
+                  {/* User avatar */}
+                  <div className="w-7 h-7 rounded-full bg-[#e4e4e7] flex items-center justify-center shrink-0 text-[11px] font-semibold text-[#52525b]">
+                    U
                   </div>
                 </div>
               )}
 
               {/* AI message */}
               {msg.role === "assistant" && (
-                <div className="flex flex-col gap-1.5">
+                <div className="flex items-start gap-2.5">
+                  {/* AI avatar */}
+                  <div className="w-7 h-7 rounded-full bg-[#0d0d0d] flex items-center justify-center shrink-0 mt-0.5 text-white text-[10px] font-bold">
+                    A
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col gap-1.5">
                   {msg.parts?.map((p, i) => {
                     const tp = p as Record<string, unknown>;
 
@@ -274,6 +283,7 @@ export default function ChatPanel({ activeAgents, selectedSources = [], selected
                     }
                     return null;
                   })}
+                  </div>
                 </div>
               )}
             </div>
@@ -281,11 +291,16 @@ export default function ChatPanel({ activeAgents, selectedSources = [], selected
 
           {/* Typing dots */}
           {isLoading && (
-            <div className="flex items-center gap-1 h-7">
-              {[0, 1, 2].map(i => (
-                <div key={i} className="w-2 h-2 bg-[#d4d4d8] rounded-full animate-bounce"
-                  style={{ animationDelay: `${i * 0.12}s`, animationDuration: "0.9s" }} />
-              ))}
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-full bg-[#0d0d0d] flex items-center justify-center shrink-0 text-white text-[10px] font-bold">
+                A
+              </div>
+              <div className="flex items-center gap-1 h-7">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="w-2 h-2 bg-[#d4d4d8] rounded-full animate-bounce"
+                    style={{ animationDelay: `${i * 0.12}s`, animationDuration: "0.9s" }} />
+                ))}
+              </div>
             </div>
           )}
 
