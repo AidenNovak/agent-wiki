@@ -63,10 +63,50 @@ function formatTree(entries: DirEntry[], indent = ""): string {
   }).join("\n");
 }
 
+const EVEROS = process.env.EVEROS_BASE_URL ?? "http://127.0.0.1:8000";
+
+async function searchEverOS(query: string, sources: string[]): Promise<string> {
+  try {
+    const res = await fetch(`${EVEROS}/api/v1/knowledge/search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, method: "hybrid", top_k: 6, include_content: true, score_threshold: 0.3 }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return "";
+    const data = await res.json();
+    const hits: EverosHit[] = data.data?.hits ?? [];
+    const filtered = sources.length
+      ? hits.filter(h => sources.some(s => h.topic_path?.toLowerCase().startsWith(s.toLowerCase())))
+      : hits;
+    if (!filtered.length) return "";
+    return "## Knowledge Context from EverOS\n" +
+      filtered.slice(0, 5).map(h =>
+        `### ${h.topic_path}\n${(h.content ?? h.summary ?? "").slice(0, 800)}`
+      ).join("\n\n");
+  } catch { return ""; }
+}
+
+interface EverosHit { topic_path: string; content?: string; summary?: string; }
+
 export async function POST(req: Request) {
-  const { messages, agentContext } = await req.json();
+  const { messages, agentContext, selectedSources } = await req.json();
+
+  // Retrieve relevant knowledge from EverOS based on last user message
+  const lastUserMsg = [...(messages as { role: string; parts?: { type: string; text?: string }[] }[])]
+    .reverse()
+    .find(m => m.role === "user");
+  const userQuery = lastUserMsg?.parts?.find(p => p.type === "text")?.text ?? "";
+
+  let everosContext = "";
+  if (userQuery) {
+    everosContext = await searchEverOS(userQuery, selectedSources ?? []);
+  }
 
   let systemPrompt = SYSTEM_PROMPT;
+  if (everosContext) {
+    systemPrompt += `\n\n${everosContext}`;
+  }
   if (agentContext?.length) {
     const ctx = (agentContext as string[])
       .map((name: string) => AGENT_MAP[name])

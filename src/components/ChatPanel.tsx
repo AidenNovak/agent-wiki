@@ -11,6 +11,8 @@ const MermaidBlock = lazy(() => import("./MermaidBlock"));
 
 interface Props {
   activeAgents: string[];
+  selectedSources?: string[];   // repo names to include in EverOS search
+  selectedDocs?: string[];      // user doc IDs to include
 }
 
 // ── Tool call — minimal inline indicator like ChatGPT ─────────────────────────
@@ -207,7 +209,7 @@ const SUGGESTIONS = [
 
 // ── ChatPanel ─────────────────────────────────────────────────────────────────
 
-export default function ChatPanel({ activeAgents }: Props) {
+export default function ChatPanel({ activeAgents, selectedSources = [], selectedDocs = [] }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [inputValue, setInputValue] = useState("");
@@ -225,7 +227,10 @@ export default function ChatPanel({ activeAgents }: Props) {
   const submit = useCallback(() => {
     const text = inputValue.trim();
     if (!text || isLoading) return;
-    sendMessage({ role: "user", parts: [{ type: "text", text }] }, { body: { agentContext: activeAgents } });
+    sendMessage(
+      { role: "user", parts: [{ type: "text", text }] },
+      { body: { agentContext: activeAgents, selectedSources, selectedDocs } },
+    );
     setInputValue("");
     if (inputRef.current) { inputRef.current.style.height = "24px"; }
   }, [inputValue, isLoading, sendMessage, activeAgents]);
