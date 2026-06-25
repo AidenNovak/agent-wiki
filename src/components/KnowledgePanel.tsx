@@ -7,6 +7,32 @@ interface Repo {
   name: string;
   category: string;
   description: string;
+  url?: string;
+}
+
+function RepoAvatar({ url, name }: { url?: string; name: string }) {
+  const [failed, setFailed] = useState(false);
+  const owner = url?.match(/github\.com\/([^/]+)/)?.[1] ?? null;
+  const src = owner ? `https://github.com/${owner}.png?size=40` : null;
+
+  if (src && !failed) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={name}
+        width={18} height={18}
+        className="rounded-md object-cover shrink-0"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  // Fallback: colored dot
+  return (
+    <div className="w-[18px] h-[18px] rounded-md bg-[#e4e4e7] flex items-center justify-center shrink-0 text-[8px] font-bold text-[#6b6b6b]">
+      {name[0]?.toUpperCase()}
+    </div>
+  );
 }
 
 interface UserDoc {
@@ -151,7 +177,8 @@ export default function KnowledgePanel({
                     }`}>
                       {on && <Check size={9} className="text-white" strokeWidth={3} />}
                     </div>
-                    <span className="text-[12px] font-mono truncate">{r.name}</span>
+                    <RepoAvatar url={r.url} name={r.name} />
+                    <span className="text-[12px] truncate">{r.name}</span>
                   </button>
                 );
               })}
