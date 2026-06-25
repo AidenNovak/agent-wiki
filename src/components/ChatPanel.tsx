@@ -220,7 +220,14 @@ export default function ChatPanel({ activeAgents, selectedSources = [], selected
           )}
 
           {/* Message list */}
-          {(messages as UIMessage[]).map(msg => (
+          {/* lastAssistantId: only the last assistant message is "in-flight" while streaming */}
+          {(messages as UIMessage[]).map((msg, msgIdx) => {
+            const allMsgs = messages as UIMessage[];
+            const isLastMsg = msgIdx === allMsgs.length - 1;
+            // A message text part is "final" when: it's not the last message,
+            // OR streaming has fully stopped.
+            const msgFinal = !isLastMsg || !isLoading;
+            return (
             <div key={msg.id}>
               {/* User message */}
               {msg.role === "user" && (
@@ -280,7 +287,10 @@ export default function ChatPanel({ activeAgents, selectedSources = [], selected
                       if (partType === "text" && tp.text) {
                         return (
                           <div key={i} className="markstream-chat-content">
-                            <MarkdownRender content={String(tp.text)} final={status !== "streaming"} />
+                            <MarkdownRender
+                              content={String(tp.text)}
+                              final={msgFinal}
+                            />
                           </div>
                         );
                       }
@@ -291,7 +301,8 @@ export default function ChatPanel({ activeAgents, selectedSources = [], selected
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
 
           {/* Typing dots */}
           {isLoading && (
