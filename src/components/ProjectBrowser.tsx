@@ -11,6 +11,42 @@ interface AgentMeta {
   category: string;
   description: string;
   dir: string;
+  url?: string;
+}
+
+/** Extract GitHub owner from repo URL, e.g. "https://github.com/openai/codex" → "openai" */
+function githubOwner(url?: string): string | null {
+  if (!url) return null;
+  const m = url.match(/github\.com\/([^/]+)/);
+  return m?.[1] ?? null;
+}
+
+function GitHubAvatar({ url, name, category }: { url?: string; name: string; category: string }) {
+  const owner = githubOwner(url);
+  const avatarUrl = owner ? `https://github.com/${owner}.png?size=80` : null;
+  const [failed, setFailed] = useState(false);
+
+  if (avatarUrl && !failed) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={avatarUrl}
+        alt={name}
+        width={22} height={22}
+        className="rounded-md object-cover shrink-0"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  // Fallback: coloured initial square
+  return (
+    <div className={`w-[22px] h-[22px] rounded-md flex items-center justify-center shrink-0 text-[9px] font-bold text-white ${
+      category === "collaboration" ? "bg-[#7c3aed]" : "bg-[#0d0d0d]"
+    }`}>
+      {name[0].toUpperCase()}
+    </div>
+  );
 }
 
 interface Entry {
@@ -156,11 +192,7 @@ function ProjectItem({
         />
         {loading
           ? <Loader2 size={14} className="animate-spin text-[#9b9b9b]" />
-          : <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 text-[9px] font-bold text-white ${
-              agent.category === "collaboration" ? "bg-[#7c3aed]" : "bg-[#0d0d0d]"
-            }`}>
-              {agent.name[0].toUpperCase()}
-            </div>}
+          : <GitHubAvatar url={agent.url} name={agent.name} category={agent.category} />}
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-medium text-[#0d0d0d] truncate">{agent.name}</p>
           <p className="text-[10px] text-[#9b9b9b] truncate">{agent.description}</p>
