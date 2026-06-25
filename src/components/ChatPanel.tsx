@@ -43,16 +43,11 @@ function ToolBubble({
   result?: string;
   state: "running" | "done";
 }) {
-  const [open, setOpen] = useState(true);   // starts expanded
+  const [open, setOpen] = useState(false);  // starts collapsed
   const prevState = useRef(state);
 
-  // Auto-collapse 1.8s after completing
+  // Track state changes (no auto-collapse — starts collapsed by default)
   useEffect(() => {
-    if (prevState.current !== "done" && state === "done") {
-      const t = setTimeout(() => setOpen(false), 1800);
-      prevState.current = "done";
-      return () => clearTimeout(t);
-    }
     prevState.current = state;
   }, [state]);
 
