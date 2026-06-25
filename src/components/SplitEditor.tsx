@@ -7,28 +7,42 @@ interface Props {
   original: string;
   modified: string;
   onChange: (v: string) => void;
-  lang?: string;
-  readOnly?: boolean;
 }
 
-// ── Colour palette ────────────────────────────────────────────────────────────
-const LINE_BG: Record<DiffLine["kind"], string> = {
-  equal: "",
-  insert: "bg-[#1b3a2a]",
-  delete: "bg-[#3a1b1b]",
+// ── Colour tokens (GitHub PR diff style, light) ────────────────────────────
+
+const ROW_STYLE: Record<DiffLine["kind"], string> = {
+  equal:  "",
+  insert: "bg-[#d1fae5]",      // light green
+  delete: "bg-[#fee2e2]",      // light red / pink
 };
-const LINE_GUTTER: Record<DiffLine["kind"], string> = {
-  equal: "text-[#484f58]",
-  insert: "text-[#56d364]",
-  delete: "text-[#f85149]",
+
+const NUM_STYLE: Record<DiffLine["kind"], string> = {
+  equal:  "text-[#9b9b9b]",
+  insert: "text-[#059669] font-medium",
+  delete: "text-[#dc2626] font-medium",
 };
-const LINE_SYMBOL: Record<DiffLine["kind"], string> = {
-  equal: " ",
+
+const TEXT_STYLE: Record<DiffLine["kind"], string> = {
+  equal:  "text-[#0d0d0d]",
+  insert: "text-[#065f46] font-[450]",
+  delete: "text-[#991b1b] font-[450] line-through decoration-[#dc2626]/40",
+};
+
+const SYMBOL: Record<DiffLine["kind"], string> = {
+  equal:  " ",
   insert: "+",
   delete: "−",
 };
 
-// ── Render one pane (original = deletions + equals, modified = insertions + equals)
+const SYMBOL_COLOR: Record<DiffLine["kind"], string> = {
+  equal:  "text-transparent",
+  insert: "text-[#059669] font-bold",
+  delete: "text-[#dc2626] font-bold",
+};
+
+// ── One pane (read-only diff view) ────────────────────────────────────────────
+
 function Pane({
   lines,
   side,
@@ -38,29 +52,29 @@ function Pane({
   side: "orig" | "mod";
   className?: string;
 }) {
-  const visible = lines.filter((l) =>
+  const visible = lines.filter(l =>
     side === "orig" ? l.kind !== "insert" : l.kind !== "delete"
   );
 
   return (
-    <div className={`font-mono text-[12px] leading-5 overflow-auto ${className}`}>
-      <table className="w-full border-separate border-spacing-0">
+    <div className={`overflow-auto bg-white ${className}`}>
+      <table className="w-full border-separate border-spacing-0 min-w-max">
         <tbody>
           {visible.map((line, i) => {
             const num = side === "orig" ? line.origLine : line.modLine;
             return (
-              <tr key={i} className={LINE_BG[line.kind]}>
-                {/* gutter: line number */}
-                <td className={`select-none w-10 pr-2 text-right text-[11px] sticky left-0 bg-[#010409] border-r border-[#21262d] ${LINE_GUTTER[line.kind]}`}>
+              <tr key={i} className={`${ROW_STYLE[line.kind]} hover:brightness-[0.97] transition-all`}>
+                {/* Line number */}
+                <td className={`select-none text-right pr-3 pl-4 text-[11px] font-mono w-10 min-w-[2.5rem] border-r border-[#e5e5e5] sticky left-0 bg-[#fafafa] ${NUM_STYLE[line.kind]}`}>
                   {num ?? ""}
                 </td>
-                {/* diff symbol */}
-                <td className={`select-none w-5 text-center text-[11px] ${LINE_GUTTER[line.kind]}`}>
-                  {LINE_SYMBOL[line.kind]}
+                {/* Diff symbol */}
+                <td className={`select-none text-center w-5 text-[12px] font-mono ${SYMBOL_COLOR[line.kind]}`}>
+                  {SYMBOL[line.kind]}
                 </td>
-                {/* content */}
-                <td className={`pl-2 pr-4 whitespace-pre ${line.kind === "equal" ? "text-gray-300" : line.kind === "insert" ? "text-[#aff3c0]" : "text-[#ffbab8]"}`}>
-                  {line.text}
+                {/* Content */}
+                <td className={`pl-3 pr-6 text-[13px] font-mono leading-[1.6] whitespace-pre ${TEXT_STYLE[line.kind]}`}>
+                  {line.text || " "}
                 </td>
               </tr>
             );
@@ -72,64 +86,74 @@ function Pane({
 }
 
 // ── Main SplitEditor ──────────────────────────────────────────────────────────
-export default function SplitEditor({ original, modified, onChange }: Props) {
-  const diffResult = useMemo(() => diffLines(original, modified), [original, modified]);
-  const stats = useMemo(() => diffStats(diffResult), [diffResult]);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-resize textarea
+export default function SplitEditor({ original, modified, onChange }: Props) {
+  const diff = useMemo(() => diffLines(original, modified), [original, modified]);
+  const stats = useMemo(() => diffStats(diff), [diff]);
+  const taRef = useRef<HTMLTextAreaElement>(null);
+
+  // Keep textarea height in sync with content
   useEffect(() => {
-    const el = textareaRef.current;
+    const el = taRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
+    el.style.height = `${Math.max(el.scrollHeight, 400)}px`;
   }, [modified]);
 
   const hasChanges = stats.added > 0 || stats.removed > 0;
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden bg-white"
+      style={{ fontFamily: '"JetBrains Mono", "Fira Code", ui-monospace, monospace' }}>
+
       {/* Stats bar */}
-      <div className="flex items-center gap-3 px-4 py-1.5 bg-[#010409] border-b border-[#21262d] shrink-0 text-[11px]">
+      <div className="flex items-center gap-3 px-4 py-1.5 bg-[#fafafa] border-b border-[#e5e5e5] shrink-0"
+        style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
         {hasChanges ? (
           <>
-            <span className="text-[#56d364] font-mono">+{stats.added}</span>
-            <span className="text-[#f85149] font-mono">−{stats.removed}</span>
-            <span className="text-gray-600">lines changed</span>
+            <span className="text-[12px] text-[#059669] font-semibold">+{stats.added}</span>
+            <span className="text-[12px] text-[#dc2626] font-semibold">−{stats.removed}</span>
+            <span className="text-[11px] text-[#9b9b9b]">lines changed</span>
           </>
         ) : (
-          <span className="text-gray-600">No changes</span>
+          <span className="text-[11px] text-[#9b9b9b]">No changes</span>
         )}
       </div>
 
-      {/* Two-pane diff */}
+      {/* Two-pane layout */}
       <div className="flex flex-1 overflow-hidden">
-        {/* LEFT: original read-only diff view */}
-        <div className="w-1/2 flex flex-col border-r border-[#30363d] overflow-hidden">
-          <div className="px-3 py-1 bg-[#0d1117] border-b border-[#21262d] text-[10px] font-semibold text-gray-500 uppercase tracking-wider shrink-0">
-            Original
+
+        {/* LEFT — original (read-only rendered diff) */}
+        <div className="w-1/2 flex flex-col border-r border-[#e5e5e5] overflow-hidden">
+          <div className="px-4 py-1 bg-[#fafafa] border-b border-[#e5e5e5] shrink-0"
+            style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+            <span className="text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wider">Original</span>
           </div>
-          <Pane lines={diffResult} side="orig" className="flex-1" />
+          <Pane lines={diff} side="orig" className="flex-1" />
         </div>
 
-        {/* RIGHT: editable textarea overlaid with diff rendering */}
+        {/* RIGHT — editable (textarea overlays the diff rendering) */}
         <div className="w-1/2 flex flex-col overflow-hidden">
-          <div className="px-3 py-1 bg-[#0d1117] border-b border-[#21262d] text-[10px] font-semibold text-[#56d364] uppercase tracking-wider shrink-0">
-            Modified <span className="text-gray-600 normal-case">(editable)</span>
+          <div className="px-4 py-1 bg-[#f0fdf4] border-b border-[#bbf7d0] shrink-0"
+            style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+            <span className="text-[10px] font-semibold text-[#059669] uppercase tracking-wider">
+              Modified <span className="normal-case font-normal text-[#9b9b9b] ml-1">— editable</span>
+            </span>
           </div>
+
           <div className="relative flex-1 overflow-hidden">
-            {/* Diff colour layer (pointer-events-none, behind textarea) */}
+            {/* Diff colour layer — behind the textarea */}
             <div className="absolute inset-0 overflow-auto pointer-events-none">
-              <Pane lines={diffResult} side="mod" />
+              <Pane lines={diff} side="mod" />
             </div>
-            {/* Actual textarea – transparent so diff shows through */}
+            {/* Editable textarea — transparent so diff shows through */}
             <textarea
-              ref={textareaRef}
-              className="absolute inset-0 w-full h-full resize-none bg-transparent text-transparent caret-white font-mono text-[12px] leading-5 pl-[3.75rem] pr-4 pt-0 pb-0 focus:outline-none overflow-auto z-10"
-              spellCheck={false}
+              ref={taRef}
               value={modified}
-              onChange={(e) => onChange(e.target.value)}
-              style={{ caretColor: "#58a6ff" }}
+              onChange={e => onChange(e.target.value)}
+              spellCheck={false}
+              className="absolute inset-0 w-full resize-none bg-transparent text-transparent caret-[#0d0d0d] font-mono text-[13px] leading-[1.6] pl-[3.75rem] pr-4 pt-0 pb-0 focus:outline-none overflow-auto z-10 min-h-full"
+              style={{ caretColor: "#0d0d0d" }}
             />
           </div>
         </div>

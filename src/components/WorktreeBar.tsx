@@ -104,16 +104,17 @@ export default function WorktreeBar({
   const loading = phase === "creating" || phase === "saving" || phase === "discarding";
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 bg-[#010409] border-t border-[#21262d] text-[11px] shrink-0 flex-wrap">
+    <div className="flex items-center gap-2 px-4 py-2 bg-white border-t border-[#e5e5e5] text-[11px] shrink-0 flex-wrap"
+      style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       {/* Worktree branch indicator */}
       {worktree ? (
-        <div className="flex items-center gap-1 text-[#56d364] font-mono">
+        <div className="flex items-center gap-1.5 text-[#059669] font-mono text-[11px]">
           <GitBranch size={11} />
-          <span className="truncate max-w-[160px]">{worktree.branch}</span>
-          {lastCommit && <span className="text-gray-600">· {lastCommit}</span>}
+          <span className="truncate max-w-[180px]">{worktree.branch}</span>
+          {lastCommit && <span className="text-[#9b9b9b] font-sans">· {lastCommit}</span>}
         </div>
       ) : (
-        <span className="text-gray-600 font-mono">⚡ Prompt Edit</span>
+        <span className="text-[#9b9b9b] text-[11px]">Edit mode — create a worktree to save changes</span>
       )}
 
       <div className="flex items-center gap-1.5 ml-auto flex-wrap">
@@ -132,7 +133,7 @@ export default function WorktreeBar({
               <Btn icon={<RefreshCw size={12} />} label="Apply" color="blue" onClick={applyChange} />
             )}
             <input
-              className="bg-[#161b22] border border-[#30363d] rounded px-2 py-0.5 text-[11px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-[#1f6feb] w-36"
+              className="bg-white border border-[#e5e5e5] rounded-lg px-2.5 py-1 text-[11px] text-[#0d0d0d] placeholder-[#b5b5b5] focus:outline-none focus:border-[#b5b5b5] w-40 transition-colors"
               placeholder="Commit message…"
               value={commitMsg}
               onChange={(e) => setCommitMsg(e.target.value)}
@@ -158,7 +159,7 @@ export default function WorktreeBar({
 
       {/* Status message */}
       {status && (
-        <div className={`flex items-center gap-1 ml-1 text-[10px] ${status.ok ? "text-[#56d364]" : "text-[#f85149]"}`}>
+        <div className={`flex items-center gap-1 ml-1 text-[11px] ${status.ok ? "text-[#059669]" : "text-[#dc2626]"}`}>
           {status.ok ? <CheckCircle size={10} /> : <AlertCircle size={10} />}
           {status.msg}
         </div>
@@ -172,11 +173,11 @@ function Btn({ icon, label, color = "gray", onClick, disabled = false, title }: 
   onClick?: () => void; disabled?: boolean; title?: string;
 }) {
   const c: Record<string, string> = {
-    blue: "text-[#58a6ff] border-[#1f6feb44] bg-[#1f6feb11] hover:bg-[#1f6feb22]",
-    green: "text-[#56d364] border-[#238636]/40 bg-[#238636]/10 hover:bg-[#238636]/20",
-    red: "text-[#f85149] border-[#da3633]/40 bg-[#da3633]/10 hover:bg-[#da3633]/20",
-    purple: "text-[#d2a8ff] border-[#8957e5]/40 bg-[#8957e5]/10 hover:bg-[#8957e5]/20",
-    gray: "text-gray-400 border-[#30363d] bg-[#21262d] hover:bg-[#30363d]",
+    blue:   "text-[#2563eb] border-[#bfdbfe] bg-[#eff6ff] hover:bg-[#dbeafe]",
+    green:  "text-[#059669] border-[#a7f3d0] bg-[#f0fdf4] hover:bg-[#d1fae5]",
+    red:    "text-[#dc2626] border-[#fecaca] bg-[#fef2f2] hover:bg-[#fee2e2]",
+    purple: "text-[#7c3aed] border-[#ddd6fe] bg-[#f5f3ff] hover:bg-[#ede9fe]",
+    gray:   "text-[#6b6b6b] border-[#e4e4e7] bg-white hover:bg-[#f4f4f5]",
   };
   return (
     <button
