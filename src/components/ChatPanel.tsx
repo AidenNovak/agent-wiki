@@ -1,6 +1,7 @@
 "use client";
 
 import "markstream-react/index.css";
+import OpenAILogo from "./OpenAILogo";
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
@@ -245,9 +246,9 @@ export default function ChatPanel({ activeAgents, selectedSources = [], selected
               {/* AI message */}
               {msg.role === "assistant" && (
                 <div className="flex items-start gap-2.5">
-                  {/* AI avatar */}
-                  <div className="w-7 h-7 rounded-full bg-[#0d0d0d] flex items-center justify-center shrink-0 mt-0.5 text-white text-[10px] font-bold">
-                    A
+                  {/* AI avatar — OpenAI logo */}
+                  <div className="w-7 h-7 rounded-full bg-[#0d0d0d] flex items-center justify-center shrink-0 mt-0.5">
+                    <OpenAILogo size={15} className="text-white" />
                   </div>
                   <div className="flex-1 min-w-0 flex flex-col gap-1.5">
                   {msg.parts?.map((p, i) => {
@@ -292,8 +293,8 @@ export default function ChatPanel({ activeAgents, selectedSources = [], selected
           {/* Typing dots */}
           {isLoading && (
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-full bg-[#0d0d0d] flex items-center justify-center shrink-0 text-white text-[10px] font-bold">
-                A
+              <div className="w-7 h-7 rounded-full bg-[#0d0d0d] flex items-center justify-center shrink-0">
+                <OpenAILogo size={15} className="text-white" />
               </div>
               <div className="flex items-center gap-1 h-7">
                 {[0, 1, 2].map(i => (

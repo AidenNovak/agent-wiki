@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { MessageSquare, FolderOpen } from "lucide-react";
+import OpenAILogo from "@/components/OpenAILogo";
 import ChatPanel from "@/components/ChatPanel";
 import KnowledgePanel from "@/components/KnowledgePanel";
 import ProjectBrowser from "@/components/ProjectBrowser";
@@ -54,8 +55,8 @@ export default function Home() {
       <header className="h-11 border-b border-[#e5e5e5] flex items-center px-4 shrink-0 z-10 bg-white">
         {/* Logo */}
         <div className="flex items-center gap-2.5 mr-6">
-          <div className="w-6 h-6 bg-[#0d0d0d] rounded-lg flex items-center justify-center shrink-0">
-            <span className="text-white text-[10px] font-bold">A</span>
+          <div className="w-7 h-7 bg-[#0d0d0d] rounded-lg flex items-center justify-center shrink-0">
+            <OpenAILogo size={16} className="text-white" />
           </div>
           <span className="text-[14px] font-semibold text-[#0d0d0d]">Agent Explorer</span>
         </div>
