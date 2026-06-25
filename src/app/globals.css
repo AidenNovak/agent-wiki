@@ -1,51 +1,39 @@
 @import "tailwindcss";
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; }
 
-html, body {
-  height: 100%;
-  overflow: hidden;
-}
-
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+/* ── Scrollbar — minimal ─────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #484f58; }
+::-webkit-scrollbar-thumb { background: #e4e4e7; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #c4c4c7; }
 
-/* Prose overrides for dark theme */
-.prose { color: #e6edf3; }
-.prose strong { color: #f0f6fc; }
-.prose code { color: #e6edf3; }
-.prose pre { background: #161b22; border: 1px solid #30363d; }
-
-/* Shiki github-dark override — keep our bg color */
+/* ── Shiki — transparent bg, keep dark theme ─────────────────── */
 .shiki-wrapper .shiki,
 .shiki-wrapper pre.shiki {
   background-color: transparent !important;
   margin: 0 !important;
   padding: 0 !important;
-  font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, monospace !important;
-  font-size: 12px !important;
+  font-size: 12.5px !important;
   line-height: 1.6 !important;
+  font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace !important;
 }
-.shiki-wrapper code {
-  font-family: inherit !important;
-}
-/* Line numbers via CSS counter on each .line span */
-.shiki-wrapper .line {
-  display: block;
-  padding-left: 0.5rem;
-}
+.shiki-wrapper code { font-family: inherit !important; }
+.shiki-wrapper .line { display: block; }
 
-/* Mermaid SVG fill to match dark theme */
-.mermaid-block svg {
-  color-scheme: dark;
-}
+/* ── SplitEditor lines ───────────────────────────────────────── */
+.hl-keyword { color: #ff7b72; }
+.hl-string  { color: #a5d6ff; }
+.hl-comment { color: #8b949e; font-style: italic; }
+.hl-number  { color: #79c0ff; }
 
-/* Mark highlight for search results */
-mark {
-  background: transparent;
+/* ── Mermaid ─────────────────────────────────────────────────── */
+.mermaid svg { color-scheme: light; }
+
+/* ── Smooth fade-in for agent selection ──────────────────────── */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+.animate-fade-in { animation: fadeSlideIn 0.15s ease-out; }

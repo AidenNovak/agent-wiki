@@ -19,12 +19,10 @@ interface SearchResult {
 interface Props {
   rootDir: string;
   agentName: string;
-  color?: string;
+  accentColor?: string;
   onFileSelect: (path: string, name: string) => void;
   selectedFile?: string;
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const SKIP_DIRS = new Set([".git", "node_modules", "__pycache__", ".venv", "dist", ".next", "target"]);
 
@@ -35,19 +33,14 @@ function formatSize(bytes?: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)}M`;
 }
 
-// ── EntryNode (tree item) ─────────────────────────────────────────────────────
+// ── Entry node ───────────────────────────────────────────────────────────────
 
-function EntryNode({
-  entry, basePath, depth, onFileSelect, selectedFile, color,
-}: {
-  entry: Entry;
-  basePath: string;
-  depth: number;
+function EntryNode({ entry, basePath, depth, onFileSelect, selectedFile }: {
+  entry: Entry; basePath: string; depth: number;
   onFileSelect: (path: string, name: string) => void;
   selectedFile?: string;
-  color: string;
 }) {
-  const [open, setOpen] = useState(depth < 2);
+  const [open, setOpen] = useState(depth < 1);
   const [children, setChildren] = useState<Entry[] | null>(entry.children ?? null);
   const [loading, setLoading] = useState(false);
   const fullPath = `${basePath}/${entry.name}`;
@@ -60,12 +53,10 @@ function EntryNode({
       try {
         const res = await fetch(`/api/fs?action=ls&path=${encodeURIComponent(fullPath)}&depth=1`);
         setChildren(await res.json());
-      } catch {
-        setChildren([]);
-      }
+      } catch { setChildren([]); }
       setLoading(false);
     }
-    setOpen((v) => !v);
+    setOpen(v => !v);
   }, [open, children, fullPath, entry.type]);
 
   if (SKIP_DIRS.has(entry.name) && entry.type === "dir") return null;
@@ -74,201 +65,166 @@ function EntryNode({
     return (
       <div>
         <button
-          className="w-full flex items-center gap-1 py-0.5 text-left hover:bg-[#161b22] rounded text-[12px] text-gray-400 hover:text-gray-200 transition-colors"
-          style={{ paddingLeft: `${depth * 12 + 4}px` }}
+          className="w-full flex items-center gap-1.5 py-[3px] text-left rounded-md hover:bg-[#f0f0f0] transition-colors text-[12.5px] text-[#3f3f46] hover:text-[#0d0d0d]"
+          style={{ paddingLeft: `${depth * 14 + 8}px`, paddingRight: "8px" }}
           onClick={expand}
         >
           {loading
-            ? <Loader2 size={12} className="animate-spin text-gray-500 shrink-0" />
-            : <ChevronRight size={12} className={`transition-transform shrink-0 ${open ? "rotate-90" : ""}`} />}
+            ? <Loader2 size={11} className="animate-spin text-[#9b9b9b] shrink-0" />
+            : <ChevronRight size={11} className={`text-[#b5b5b5] transition-transform duration-150 shrink-0 ${open ? "rotate-90" : ""}`} />}
           {open
-            ? <FolderOpen size={12} className="shrink-0" style={{ color }} />
-            : <Folder size={12} className="shrink-0" style={{ color }} />}
+            ? <FolderOpen size={12} className="shrink-0 text-[#f59e0b]" />
+            : <Folder size={12} className="shrink-0 text-[#f59e0b]" />}
           <span className="truncate">{entry.name}</span>
         </button>
-        {open && children && (
-          <div>
-            {children.map((c) => (
-              <EntryNode
-                key={c.name} entry={c} basePath={fullPath} depth={depth + 1}
-                onFileSelect={onFileSelect} selectedFile={selectedFile} color={color}
-              />
-            ))}
-          </div>
-        )}
+        {open && children && children.map(c => (
+          <EntryNode key={c.name} entry={c} basePath={fullPath} depth={depth + 1}
+            onFileSelect={onFileSelect} selectedFile={selectedFile} />
+        ))}
       </div>
     );
   }
 
   return (
     <button
-      className={`w-full flex items-center gap-1.5 py-0.5 text-left rounded text-[12px] transition-colors ${
+      className={`w-full flex items-center gap-1.5 py-[3px] text-left rounded-md text-[12.5px] transition-all duration-100 ${
         isSelected
-          ? "bg-[#1f6feb22] text-[#58a6ff]"
-          : "text-gray-400 hover:bg-[#161b22] hover:text-gray-200"
+          ? "bg-[#0d0d0d] text-white"
+          : "text-[#52525b] hover:bg-[#f0f0f0] hover:text-[#0d0d0d]"
       }`}
-      style={{ paddingLeft: `${depth * 12 + 16}px` }}
+      style={{ paddingLeft: `${depth * 14 + 22}px`, paddingRight: "8px" }}
       onClick={() => onFileSelect(fullPath, entry.name)}
       title={entry.name}
     >
-      <File size={11} className="shrink-0 text-gray-600" />
+      <File size={11} className={`shrink-0 ${isSelected ? "text-white/60" : "text-[#c4c4c7]"}`} />
       <span className="truncate flex-1">{entry.name}</span>
-      <span className="text-gray-600 text-[10px] shrink-0 pr-1">{formatSize(entry.size)}</span>
+      <span className={`text-[10px] shrink-0 ${isSelected ? "text-white/50" : "text-[#c4c4c7]"}`}>
+        {formatSize(entry.size)}
+      </span>
     </button>
   );
 }
 
-// ── Search results panel ──────────────────────────────────────────────────────
+// ── Search results ───────────────────────────────────────────────────────────
 
-function SearchPanel({
-  results, loading, query, onFileSelect, color,
-}: {
-  results: SearchResult[];
-  loading: boolean;
-  query: string;
+function SearchResults({ results, loading, query, onFileSelect }: {
+  results: SearchResult[]; loading: boolean; query: string;
   onFileSelect: (path: string, name: string) => void;
-  color: string;
 }) {
   if (!query) return null;
-
   return (
-    <div className="flex-1 overflow-y-auto py-1">
+    <div className="flex-1 overflow-y-auto px-2 py-1">
       {loading && (
-        <div className="flex items-center gap-2 px-3 py-2 text-gray-500 text-[11px]">
+        <div className="flex items-center gap-2 px-2 py-3 text-[12px] text-[#9b9b9b]">
           <Loader2 size={12} className="animate-spin" /> Searching…
         </div>
       )}
       {!loading && results.length === 0 && (
-        <div className="px-3 py-4 text-center text-gray-600 text-[11px]">
-          No files matching <span className="text-gray-400">"{query}"</span>
+        <div className="px-2 py-4 text-center text-[12px] text-[#b5b5b5]">
+          No files matching <span className="font-mono text-[#6b6b6b]">"{query}"</span>
         </div>
       )}
       {!loading && results.map((r, i) => (
         <button
           key={i}
-          className="w-full flex flex-col px-3 py-1 text-left hover:bg-[#161b22] transition-colors rounded"
+          className="w-full flex flex-col px-2 py-1.5 text-left rounded-md hover:bg-[#f0f0f0] transition-colors"
           onClick={() => onFileSelect(r.path, r.name)}
         >
-          <span className="text-[12px] font-mono" style={{ color }}>
+          <span className="text-[12.5px] font-medium text-[#0d0d0d] truncate">
             {highlightMatch(r.name, query)}
           </span>
-          <span className="text-[10px] text-gray-600 truncate">{r.dir}</span>
+          <span className="text-[11px] text-[#9b9b9b] truncate">{r.dir}</span>
         </button>
       ))}
     </div>
   );
 }
 
-function highlightMatch(name: string, query: string): React.ReactNode {
-  if (!query) return name;
-  const idx = name.toLowerCase().indexOf(query.toLowerCase());
+function highlightMatch(name: string, q: string): React.ReactNode {
+  if (!q) return name;
+  const idx = name.toLowerCase().indexOf(q.toLowerCase());
   if (idx === -1) return name;
   return (
     <>
       {name.slice(0, idx)}
-      <mark className="bg-[#f78166]/30 text-inherit rounded px-0.5">
-        {name.slice(idx, idx + query.length)}
-      </mark>
-      {name.slice(idx + query.length)}
+      <mark className="bg-yellow-100 text-[#0d0d0d] rounded-sm">{name.slice(idx, idx + q.length)}</mark>
+      {name.slice(idx + q.length)}
     </>
   );
 }
 
-// ── FileTree ──────────────────────────────────────────────────────────────────
+// ── FileTree ─────────────────────────────────────────────────────────────────
 
-export default function FileTree({
-  rootDir, agentName, color = "#58a6ff", onFileSelect, selectedFile,
-}: Props) {
+export default function FileTree({ rootDir, agentName, onFileSelect, selectedFile }: Props) {
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [loadingTree, setLoadingTree] = useState(false);
-  const [treeError, setTreeError] = useState<string | null>(null);
 
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const searchRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Load tree on mount
   const load = useCallback(async () => {
     setLoadingTree(true);
-    setTreeError(null);
     try {
       const res = await fetch(`/api/fs?action=ls&path=${encodeURIComponent(rootDir)}&depth=2`);
-      if (!res.ok) throw new Error(await res.text());
       setEntries(await res.json());
-    } catch (e) {
-      setTreeError(String(e));
-    }
+    } catch { setEntries([]); }
     setLoadingTree(false);
   }, [rootDir]);
 
-  if (entries === null && !loadingTree && !treeError) load();
+  // Reset and reload when rootDir changes
+  useEffect(() => {
+    setEntries(null);
+    setQuery("");
+    setSearchResults([]);
+  }, [rootDir]);
 
-  // Debounced search
+  if (entries === null && !loadingTree) load();
+
+  // Search debounce
   useEffect(() => {
     const q = query.trim();
-
-    if (!q) {
-      setSearchResults([]);
-      return;
-    }
-
+    if (!q) { setSearchResults([]); return; }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       setSearchLoading(true);
       try {
-        const res = await fetch(
-          `/api/fs?action=find&path=${encodeURIComponent(rootDir)}&q=${encodeURIComponent(q)}`
-        );
-        const data = await res.json();
-        setSearchResults(Array.isArray(data) ? data : []);
-      } catch {
-        setSearchResults([]);
-      }
+        const r = await fetch(`/api/fs?action=find&path=${encodeURIComponent(rootDir)}&q=${encodeURIComponent(q)}`);
+        const d = await r.json();
+        setSearchResults(Array.isArray(d) ? d : []);
+      } catch { setSearchResults([]); }
       setSearchLoading(false);
     }, 250);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query, rootDir]);
 
   const isSearching = query.trim().length > 0;
 
   return (
-    <div className="h-full flex flex-col bg-[#0d1117] overflow-hidden">
-      {/* Header: agent name + search toggle */}
-      <div className="px-2 py-1.5 border-b border-[#21262d] shrink-0">
-        <div className="flex items-center gap-2 mb-1">
-          <Folder size={12} style={{ color }} />
-          <span className="text-[11px] font-mono font-semibold truncate" style={{ color }}>
-            {agentName}
-          </span>
+    <div className="h-full flex flex-col bg-white overflow-hidden border-r border-[#e5e5e5]"
+      style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+      {/* Header */}
+      <div className="px-3 py-2.5 border-b border-[#ebebeb]">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[12px] font-semibold text-[#0d0d0d] truncate">{agentName}</span>
         </div>
-
-        {/* Search input */}
+        {/* Search */}
         <div className="relative">
-          <Search
-            size={11}
-            className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none"
-          />
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#b5b5b5]" />
           <input
-            ref={searchRef}
+            ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={e => setQuery(e.target.value)}
             placeholder="Search files…"
-            className={`w-full bg-[#161b22] border rounded text-[12px] text-gray-300 placeholder-gray-600
-              focus:outline-none transition-colors pl-6 pr-6 py-1
-              ${isSearching
-                ? "border-[#58a6ff66] ring-1 ring-[#1f6feb22]"
-                : "border-[#30363d] hover:border-[#484f58]"}`}
+            className="w-full text-[12px] bg-[#f4f4f5] border border-transparent rounded-lg pl-7 pr-6 py-1.5 text-[#0d0d0d] placeholder-[#9b9b9b] focus:outline-none focus:border-[#d4d4d8] focus:bg-white transition-all"
           />
           {query && (
             <button
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400"
-              onClick={() => { setQuery(""); searchRef.current?.focus(); }}
+              onClick={() => { setQuery(""); inputRef.current?.focus(); }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-[#b5b5b5] hover:text-[#6b6b6b]"
             >
               <X size={11} />
             </button>
@@ -276,30 +232,22 @@ export default function FileTree({
         </div>
       </div>
 
-      {/* Tree or search results */}
+      {/* Content */}
       {isSearching ? (
-        <SearchPanel
-          results={searchResults}
-          loading={searchLoading}
-          query={query.trim()}
+        <SearchResults
+          results={searchResults} loading={searchLoading} query={query.trim()}
           onFileSelect={(p, n) => { onFileSelect(p, n); setQuery(""); }}
-          color={color}
         />
       ) : (
-        <div className="flex-1 overflow-y-auto py-1">
+        <div className="flex-1 overflow-y-auto px-2 py-1.5">
           {loadingTree && (
-            <div className="flex items-center justify-center py-8 text-gray-500">
-              <Loader2 size={16} className="animate-spin" />
+            <div className="flex justify-center py-6">
+              <Loader2 size={16} className="animate-spin text-[#b5b5b5]" />
             </div>
           )}
-          {treeError && (
-            <div className="px-3 py-2 text-red-400 text-xs">{treeError}</div>
-          )}
-          {entries && entries.map((e) => (
-            <EntryNode
-              key={e.name} entry={e} basePath={rootDir} depth={0}
-              onFileSelect={onFileSelect} selectedFile={selectedFile} color={color}
-            />
+          {entries && entries.map(e => (
+            <EntryNode key={e.name} entry={e} basePath={rootDir} depth={0}
+              onFileSelect={onFileSelect} selectedFile={selectedFile} />
           ))}
         </div>
       )}
