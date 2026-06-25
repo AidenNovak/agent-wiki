@@ -1,15 +1,18 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { streamText, jsonSchema, stepCountIs } from "ai";
+import { streamText, jsonSchema, stepCountIs, convertToModelMessages } from "ai";
 import { listDir, readFile, grepFiles, getWiki, DirEntry } from "@/lib/fs-tools";
 import { getAllAgents } from "@/lib/agents";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
-const deepseek = createOpenAI({
+const _deepseekProvider = createOpenAI({
   apiKey: process.env.DEEPSEEK_API_KEY ?? "",
   baseURL: "https://api.deepseek.com/v1",
 });
+// ai-sdk v6 defaults to OpenAI Responses API (/v1/responses) which DeepSeek does not support.
+// Use .chat() to force the Chat Completions path (/v1/chat/completions).
+const deepseek = (modelId: string) => _deepseekProvider.chat(modelId);
 
 const AGENTS = getAllAgents();
 const AGENT_MAP = Object.fromEntries(AGENTS.map((a) => [a.name, a]));
@@ -73,10 +76,15 @@ export async function POST(req: Request) {
     systemPrompt += `\n\n## Currently Active in IDE\n${ctx}`;
   }
 
+  // ai v6: useChat sends UIMessage[]; streamText needs ModelMessage[]
+  // convertToModelMessages is sync in runtime but types it as async-compatible
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const modelMessages = await Promise.resolve(convertToModelMessages(messages as any));
+
   const result = streamText({
     model: deepseek("deepseek-v4-flash"),
     system: systemPrompt,
-    messages,
+    messages: modelMessages,
     tools: {
       ls_directory: {
         description: "List files and directories. Use depth=1 for shallow, depth=2-3 for deeper tree.",
