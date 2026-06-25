@@ -31,6 +31,70 @@ html, body { height: 100%; overflow: hidden; }
 /* ── Mermaid ─────────────────────────────────────────────────── */
 .mermaid svg { color-scheme: light; }
 
+/* ── markstream-react: override to match our white theme ─────── */
+.markstream-chat-content {
+  font-size: 15px;
+  line-height: 1.7;
+  color: #0d0d0d;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.markstream-chat-content p { margin: 0.25rem 0; color: #0d0d0d; }
+.markstream-chat-content h1,
+.markstream-chat-content h2,
+.markstream-chat-content h3 { font-weight: 600; color: #0d0d0d; margin-top: 1rem; margin-bottom: 0.25rem; }
+.markstream-chat-content h1 { font-size: 18px; }
+.markstream-chat-content h2 { font-size: 16px; }
+.markstream-chat-content h3 { font-size: 14px; }
+.markstream-chat-content code {
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12.5px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  color: #18181b;
+}
+.markstream-chat-content pre {
+  background: #18181b;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 10px 0;
+  overflow-x: auto;
+}
+.markstream-chat-content pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: #e4e4e7;
+  font-size: 12.5px;
+}
+.markstream-chat-content ul { margin: 4px 0; padding-left: 20px; }
+.markstream-chat-content ol { margin: 4px 0; padding-left: 20px; }
+.markstream-chat-content li { margin: 2px 0; color: #0d0d0d; }
+.markstream-chat-content blockquote {
+  border-left: 3px solid #e4e4e7;
+  padding-left: 12px;
+  color: #6b7280;
+  margin: 8px 0;
+}
+.markstream-chat-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+  font-size: 13px;
+}
+.markstream-chat-content th,
+.markstream-chat-content td {
+  border: 1px solid #e5e5e5;
+  padding: 6px 12px;
+  text-align: left;
+}
+.markstream-chat-content th { background: #f7f7f8; font-weight: 600; }
+.markstream-chat-content a { color: #2563eb; text-decoration: none; }
+.markstream-chat-content a:hover { text-decoration: underline; }
+.markstream-chat-content strong { font-weight: 600; }
+.markstream-chat-content hr { border: none; border-top: 1px solid #e5e5e5; margin: 12px 0; }
+
 /* ── Smooth fade-in for agent selection ──────────────────────── */
 @keyframes fadeSlideIn {
   from { opacity: 0; transform: translateY(4px); }

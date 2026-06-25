@@ -16,6 +16,7 @@
     "ai": "^6.0.209",
     "archiver": "^8.0.0",
     "lucide-react": "^1.21.0",
+    "markstream-react": "^0.0.52",
     "mermaid": "^11.15.0",
     "next": "16.2.9",
     "react": "19.2.4",

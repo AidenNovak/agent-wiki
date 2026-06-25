@@ -1,204 +1,136 @@
 "use client";
 
+import "markstream-react/index.css";
+
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { ArrowUp, Loader2, ChevronRight, Copy, Check, Search, FileText, FolderOpen, BookOpen } from "lucide-react";
-import { useRef, useEffect, useState, lazy, Suspense, useCallback } from "react";
+import {
+  ArrowUp, Loader2,
+  ChevronDown, ChevronRight,
+  Search, FileText, FolderOpen, BookOpen,
+  CheckCircle2, Clock,
+} from "lucide-react";
+import { useRef, useEffect, useState, useCallback, lazy, Suspense } from "react";
 import type { UIMessage } from "ai";
-import ShikiCode from "./ShikiCode";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+import MarkdownRender from "markstream-react";
 
 const MermaidBlock = lazy(() => import("./MermaidBlock"));
 
 interface Props {
   activeAgents: string[];
-  selectedSources?: string[];   // repo names to include in EverOS search
-  selectedDocs?: string[];      // user doc IDs to include
+  selectedSources?: string[];
+  selectedDocs?: string[];
 }
 
-// ── Tool call — minimal inline indicator like ChatGPT ─────────────────────────
+// ── Tool icon map ─────────────────────────────────────────────────────────────
 
-const TOOL_ICONS: Record<string, React.ReactNode> = {
-  ls_directory: <FolderOpen size={12} />,
-  read_file: <FileText size={12} />,
-  grep_files: <Search size={12} />,
-  get_wiki: <BookOpen size={12} />,
+const TOOL_META: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+  ls_directory: { label: "Browsed directory",  icon: <FolderOpen size={12} />, color: "#f59e0b" },
+  read_file:    { label: "Read file",          icon: <FileText size={12} />,   color: "#3b82f6" },
+  grep_files:   { label: "Searched code",      icon: <Search size={12} />,     color: "#8b5cf6" },
+  get_wiki:     { label: "Read wiki",          icon: <BookOpen size={12} />,   color: "#10b981" },
 };
 
-const TOOL_LABELS: Record<string, string> = {
-  ls_directory: "Browsed directory",
-  read_file: "Read file",
-  grep_files: "Searched code",
-  get_wiki: "Read wiki",
-};
+// ── Tool bubble ───────────────────────────────────────────────────────────────
 
-function ToolRow({ toolName, args, result }: {
-  toolName: string; args: unknown; result?: string;
+function ToolBubble({
+  toolName, args, result, state,
+}: {
+  toolName: string;
+  args: unknown;
+  result?: string;
+  state: "running" | "done";
 }) {
-  const [open, setOpen] = useState(false);
-  const safeArgs = (args && typeof args === "object") ? args as Record<string, unknown> : {};
-  const label = TOOL_LABELS[toolName] ?? toolName;
-  const icon = TOOL_ICONS[toolName] ?? <Search size={12} />;
+  const [open, setOpen] = useState(true);   // starts expanded
+  const prevState = useRef(state);
 
-  // Extract a short context string
-  const context = safeArgs.path
+  // Auto-collapse 1.8s after completing
+  useEffect(() => {
+    if (prevState.current !== "done" && state === "done") {
+      const t = setTimeout(() => setOpen(false), 1800);
+      prevState.current = "done";
+      return () => clearTimeout(t);
+    }
+    prevState.current = state;
+  }, [state]);
+
+  const meta = TOOL_META[toolName] ?? { label: toolName, icon: <Search size={12} />, color: "#6b7280" };
+  const safeArgs = (args && typeof args === "object") ? args as Record<string, unknown> : {};
+
+  // Brief context string
+  const hint = safeArgs.path
     ? String(safeArgs.path).split("/").slice(-1)[0]
     : safeArgs.agent_name
     ? String(safeArgs.agent_name)
-    : safeArgs.query
-    ? String(safeArgs.query).slice(0, 40)
+    : safeArgs.pattern
+    ? `"${String(safeArgs.pattern).slice(0, 30)}"`
     : "";
 
   return (
-    <div className="mb-1">
+    <div className="mb-2 rounded-2xl overflow-hidden border border-[#f0f0f0] bg-[#fafafa] text-[12px]"
+      style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+      {/* Header row — always visible */}
       <button
+        className="w-full flex items-center gap-2 px-3.5 py-2 text-left hover:bg-[#f0f0f0] transition-colors"
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1.5 text-[13px] text-[#8e8ea0] hover:text-[#555] transition-colors group"
       >
-        <span className="text-[#aeaebb]">{icon}</span>
-        <span>{label}</span>
-        {context && <span className="text-[12px] text-[#c5c5d2] font-mono">{context}</span>}
+        {/* Animated state indicator */}
+        {state === "running" ? (
+          <Loader2 size={12} className="animate-spin shrink-0" style={{ color: meta.color }} />
+        ) : (
+          <CheckCircle2 size={12} className="shrink-0 text-[#10b981]" />
+        )}
+
+        {/* Icon + label */}
+        <span style={{ color: meta.color }} className="shrink-0">{meta.icon}</span>
+        <span className="font-medium text-[#3f3f46]">{meta.label}</span>
+        {hint && <span className="text-[#9b9b9b] font-mono truncate max-w-[200px]">{hint}</span>}
+
+        {/* State badge */}
+        {state === "running" && (
+          <span className="ml-auto flex items-center gap-1 text-[10px] text-[#9b9b9b]">
+            <Clock size={9} /> running
+          </span>
+        )}
+
+        {/* Chevron */}
         <ChevronRight
           size={11}
-          className={`text-[#c5c5d2] transition-transform duration-150 ${open ? "rotate-90" : ""}`}
+          className={`ml-auto text-[#c4c4c7] transition-transform duration-200 shrink-0 ${open ? "rotate-90" : ""}`}
+          style={{ marginLeft: state === "running" ? undefined : "auto" }}
         />
       </button>
 
-      {open && (
-        <div className="mt-2 ml-1 rounded-2xl bg-[#f4f4f5] border border-[#e4e4e7] overflow-hidden text-[12px] font-mono">
-          <div className="px-4 py-3 border-b border-[#e4e4e7]">
-            <span className="text-[10px] font-sans font-semibold text-[#a1a1aa] uppercase tracking-wider block mb-1.5">Input</span>
-            <pre className="text-[#3f3f46] whitespace-pre-wrap overflow-auto max-h-28">
+      {/* Expandable details */}
+      <div
+        className={`overflow-hidden transition-all duration-300 ease-out ${open ? "max-h-[400px] opacity-100" : "max-h-0 opacity-0"}`}
+      >
+        <div className="border-t border-[#ebebeb]">
+          {/* Args */}
+          <div className="px-4 py-2.5">
+            <p className="text-[9px] font-semibold text-[#b5b5b5] uppercase tracking-wider mb-1.5">Input</p>
+            <pre className="text-[11px] font-mono text-[#52525b] whitespace-pre-wrap overflow-auto max-h-24">
               {JSON.stringify(safeArgs, null, 2)}
             </pre>
           </div>
+
+          {/* Result */}
           {result && (
-            <div className="px-4 py-3">
-              <span className="text-[10px] font-sans font-semibold text-[#a1a1aa] uppercase tracking-wider block mb-1.5">Output</span>
-              <pre className="text-[#52525b] whitespace-pre-wrap overflow-auto max-h-40">
-                {result.length > 2000 ? result.slice(0, 2000) + "\n…" : result}
+            <div className="px-4 py-2.5 border-t border-[#f0f0f0]">
+              <p className="text-[9px] font-semibold text-[#b5b5b5] uppercase tracking-wider mb-1.5">Output</p>
+              <pre className="text-[11px] font-mono text-[#52525b] whitespace-pre-wrap overflow-auto max-h-40">
+                {result.length > 2500 ? result.slice(0, 2500) + "\n…(truncated)" : result}
               </pre>
             </div>
           )}
         </div>
-      )}
-    </div>
-  );
-}
-
-// ── Code block ────────────────────────────────────────────────────────────────
-
-function CodeBlock({ lang, code }: { lang: string; code: string }) {
-  const [copied, setCopied] = useState(false);
-  const isMermaid = lang === "mermaid";
-
-  const copy = async () => {
-    await navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
-  if (isMermaid) {
-    return (
-      <Suspense fallback={<div className="my-3 rounded-2xl bg-[#f4f4f5] p-4 text-[#a1a1aa] text-[13px]">Loading diagram…</div>}>
-        <MermaidBlock code={code} />
-      </Suspense>
-    );
-  }
-
-  return (
-    <div className="my-3 rounded-2xl overflow-hidden border border-[#e4e4e7] bg-[#18181b]">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-[#27272a]">
-        <span className="text-[11px] text-[#71717a] font-mono">{lang || "code"}</span>
-        <button onClick={copy} className="text-[#71717a] hover:text-[#a1a1aa] transition-colors">
-          {copied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
-        </button>
       </div>
-      <ShikiCode code={code} lang={lang || "text"} className="text-[12.5px] [&_pre]:p-4 [&_pre]:!bg-[#18181b] [&_pre]:overflow-auto [&_pre]:max-h-[380px]" />
     </div>
   );
 }
 
-// ── Markdown renderer ─────────────────────────────────────────────────────────
-
-type Seg = { kind: "text"; raw: string } | { kind: "code"; lang: string; code: string };
-
-function parseSegs(raw: string): Seg[] {
-  const out: Seg[] = [];
-  const re = /```(\w*)\n?([\s\S]*?)```/g;
-  let last = 0, m: RegExpExecArray | null;
-  while ((m = re.exec(raw)) !== null) {
-    if (m.index > last) out.push({ kind: "text", raw: raw.slice(last, m.index) });
-    out.push({ kind: "code", lang: m[1] || "text", code: m[2] });
-    last = m.index + m[0].length;
-  }
-  if (last < raw.length) out.push({ kind: "text", raw: raw.slice(last) });
-  return out;
-}
-
-function inline(t: string) {
-  return t
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.*?)\*/g, "<em>$1</em>")
-    .replace(/`([^`]+)`/g, "<code class='bg-[#f4f4f5] text-[#18181b] rounded px-1 py-0.5 text-[12.5px] font-mono border border-[#e4e4e7]'>$1</code>")
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<a href='$2' target='_blank' rel='noreferrer' class='text-[#2563eb] hover:underline'>$1</a>");
-}
-
-function TextSeg({ raw }: { raw: string }) {
-  const nodes: React.ReactNode[] = [];
-  let bullets: string[] = [];
-
-  const flush = (key: number) => {
-    if (!bullets.length) return;
-    nodes.push(
-      <ul key={`ul${key}`} className="my-2 ml-5 space-y-1 list-disc marker:text-[#a1a1aa]">
-        {bullets.map((b, j) => (
-          <li key={j} className="text-[15px] leading-7 text-[#0d0d0d]"
-            dangerouslySetInnerHTML={{ __html: inline(b) }} />
-        ))}
-      </ul>
-    );
-    bullets = [];
-  };
-
-  raw.split("\n").forEach((line, i) => {
-    const h = line.match(/^(#{1,3})\s+(.+)/);
-    if (h) {
-      flush(i);
-      const cls = h[1].length === 1
-        ? "text-[18px] font-semibold mt-5 mb-2 text-[#0d0d0d]"
-        : h[1].length === 2
-        ? "text-[16px] font-semibold mt-4 mb-1 text-[#0d0d0d]"
-        : "text-[15px] font-semibold mt-3 text-[#0d0d0d]";
-      nodes.push(<p key={i} className={cls} dangerouslySetInnerHTML={{ __html: inline(h[2]) }} />);
-      return;
-    }
-    const b = line.match(/^[-*+]\s+(.+)/);
-    if (b) { bullets.push(b[1]); return; }
-    const n = line.match(/^\d+\.\s+(.+)/);
-    if (n) { bullets.push(n[1]); return; }
-    flush(i);
-    if (!line.trim()) { if (i > 0) nodes.push(<div key={i} className="h-2" />); return; }
-    nodes.push(
-      <p key={i} className="text-[15px] leading-7 text-[#0d0d0d]"
-        dangerouslySetInnerHTML={{ __html: inline(line) }} />
-    );
-  });
-  flush(raw.length);
-  return <>{nodes}</>;
-}
-
-function AIContent({ content }: { content: string }) {
-  return (
-    <div className="space-y-0.5">
-      {parseSegs(content).map((s, i) =>
-        s.kind === "code" ? <CodeBlock key={i} lang={s.lang} code={s.code} />
-          : <TextSeg key={i} raw={s.raw} />
-      )}
-    </div>
-  );
-}
-
-// ── Suggestions ───────────────────────────────────────────────────────────────
+// ── Suggestion chips ──────────────────────────────────────────────────────────
 
 const SUGGESTIONS = [
   { icon: "🔍", text: "opencode 和 cline 架构对比" },
@@ -233,7 +165,7 @@ export default function ChatPanel({ activeAgents, selectedSources = [], selected
     );
     setInputValue("");
     if (inputRef.current) { inputRef.current.style.height = "24px"; }
-  }, [inputValue, isLoading, sendMessage, activeAgents]);
+  }, [inputValue, isLoading, sendMessage, activeAgents, selectedSources, selectedDocs]);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
@@ -253,7 +185,7 @@ export default function ChatPanel({ activeAgents, selectedSources = [], selected
       className="h-full flex flex-col bg-white overflow-hidden"
       style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif' }}
     >
-      {/* ── Thin header ─────────────────────────────────────────────────── */}
+      {/* Header */}
       <div className="shrink-0 px-6 py-2.5 border-b border-[#f0f0f0] flex items-center justify-between">
         <span className="text-[13px] font-medium text-[#0d0d0d]">AI Analysis</span>
         <div className="flex items-center gap-1.5">
@@ -261,15 +193,17 @@ export default function ChatPanel({ activeAgents, selectedSources = [], selected
             ? activeAgents.map(a => (
                 <span key={a} className="text-[11px] text-[#8e8ea0] bg-[#f7f7f7] border border-[#ebebeb] px-2 py-0.5 rounded-full font-mono">{a}</span>
               ))
+            : selectedSources.length > 0
+            ? <span className="text-[11px] text-[#9b9b9b]">{selectedSources.length} sources selected</span>
             : <span className="text-[11px] text-[#c5c5d2]">DeepSeek V4 Flash</span>}
         </div>
       </div>
 
-      {/* ── Messages ─────────────────────────────────────────────────────── */}
+      {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[680px] px-6 py-6 space-y-6">
 
-          {/* Empty state — centered suggestions */}
+          {/* Empty state */}
           {messages.length === 0 && (
             <div className="flex flex-col items-center pt-8 pb-4">
               <p className="text-[22px] font-semibold text-[#0d0d0d] mb-1">What do you want to explore?</p>
@@ -306,30 +240,46 @@ export default function ChatPanel({ activeAgents, selectedSources = [], selected
 
               {/* AI message */}
               {msg.role === "assistant" && (
-                <div className="flex flex-col gap-1">
-                  {/* Tool rows first */}
+                <div className="flex flex-col gap-1.5">
                   {msg.parts?.map((p, i) => {
                     const tp = p as Record<string, unknown>;
-                    if (!tp.type || !(String(tp.type).startsWith("tool-") || tp.type === "dynamic-tool")) return null;
-                    if (!tp.toolName) return null;
-                    return (
-                      <ToolRow key={i} toolName={String(tp.toolName)} args={tp.input ?? {}}
-                        result={tp.output != null ? String(tp.output) : undefined} />
-                    );
-                  })}
 
-                  {/* Text content */}
-                  {msg.parts?.map((p, i) => {
-                    const tp = p as Record<string, unknown>;
-                    if (tp.type !== "text" || !tp.text) return null;
-                    return <AIContent key={i} content={String(tp.text)} />;
+                    // ── Tool bubble ─────────────────────────────────────
+                    if (tp.type && (String(tp.type).startsWith("tool-") || tp.type === "dynamic-tool")) {
+                      if (!tp.toolName) return null;
+                      const hasResult = tp.output != null;
+                      return (
+                        <ToolBubble
+                          key={i}
+                          toolName={String(tp.toolName)}
+                          args={tp.input ?? {}}
+                          result={hasResult ? String(tp.output) : undefined}
+                          state={hasResult ? "done" : "running"}
+                        />
+                      );
+                    }
+
+                    // ── Text (markstream-react) ──────────────────────────
+                    if (tp.type === "text" && tp.text) {
+                      const text = String(tp.text);
+                      const isFinal = status !== "streaming";
+                      return (
+                        <div key={i} className="markstream-chat-content">
+                          <MarkdownRender
+                            content={text}
+                            final={isFinal}
+                          />
+                        </div>
+                      );
+                    }
+                    return null;
                   })}
                 </div>
               )}
             </div>
           ))}
 
-          {/* Typing indicator */}
+          {/* Typing dots */}
           {isLoading && (
             <div className="flex items-center gap-1 h-7">
               {[0, 1, 2].map(i => (
@@ -348,7 +298,7 @@ export default function ChatPanel({ activeAgents, selectedSources = [], selected
         </div>
       </div>
 
-      {/* ── Input area ─────────────────────────────────────────────────────── */}
+      {/* Input */}
       <div className="shrink-0 px-6 pb-4 pt-2">
         <div className="mx-auto max-w-[680px]">
           <div className={`flex items-end gap-3 bg-white border rounded-[26px] px-4 py-3 shadow-sm transition-all duration-150 ${
